@@ -23,6 +23,7 @@ jobs:
           unzip -q /tmp/visor-source.zip -d /tmp/visor-source
       - name: Incorporar código y datos
         run: |
+          rm -rf /tmp/visor-source/.github
           cp -a /tmp/visor-source/. .
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
