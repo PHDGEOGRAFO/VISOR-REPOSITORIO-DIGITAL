@@ -253,15 +253,16 @@ catalogExamples.forEach(([id, name, theme, geometry]) =>
 );
 const permanentLayerIds = ["comuna", "territorio", "barrio", "manzana"];
 const publishedLayerIds = ["bibliotecas", "grifos"];
+const BASE_PATH = "/VISOR-REPOSITORIO-DIGITAL";
 const boundarySources = [
-  ["comuna", "/data/comuna.geojson"],
-  ["territorio", "/data/territorios.geojson"],
-  ["barrio", "/data/barrios.geojson"],
-  ["manzana", "/data/manzanas.geojson"],
+  ["comuna", `${BASE_PATH}/data/comuna.geojson`],
+  ["territorio", `${BASE_PATH}/data/territorios.geojson`],
+  ["barrio", `${BASE_PATH}/data/barrios.geojson`],
+  ["manzana", `${BASE_PATH}/data/manzanas.geojson`],
 ] as const;
 type GeoFeature = {
   geometry: {
-    type: "Polygon" | "MultiPolygon" | "Point";
+    type: "Polygon" | "MultiPolygon" | "Point" | "LineString" | "MultiLineString";
     coordinates: unknown;
   };
   properties: Record<string, unknown>;
@@ -447,21 +448,21 @@ export default function Home() {
       .catch(() => setBoundaries({}));
   }, []);
   useEffect(() => {
-    fetch("/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson")
+    fetch(`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`)
       .then((r) => r.json())
       .then(setLibraries)
       .catch(() => setLibraries({ type: "FeatureCollection", features: [] }));
   }, []);
   useEffect(() => {
     if (active.includes("grifos") && !grifos.features.length)
-      fetch("/data/grifos.geojson")
+      fetch(`${BASE_PATH}/data/grifos.geojson`)
         .then((r) => r.json())
         .then(setGrifos)
         .catch(() => setGrifos({ type: "FeatureCollection", features: [] }));
   }, [active, grifos.features.length]);
   useEffect(() => {
     if (analysis === "Isócronas" && !streets.features.length)
-      fetch("/data/calles_santiago.geojson")
+      fetch(`${BASE_PATH}/data/calles_santiago.geojson`)
         .then((r) => r.json())
         .then(setStreets)
         .catch(() => setStreets({ type: "FeatureCollection", features: [] }));
@@ -522,12 +523,46 @@ export default function Home() {
     return keys.length ? ["Sin desagregar", ...keys] : selectedBase.fields;
   }, [selectedBase.id, selectedBase.fields, libraries, boundaries]);
   const selected = { ...selectedBase, fields: selectedFields };
-  const selectedDataset =
-    selected.id === "grifos"
-      ? grifos
-      : selected.id === "bibliotecas"
-        ? libraries
-        : ({ type: "FeatureCollection", features: [] } as GeoCollection);
+  const mapLayerData = useMemo<Record<string, GeoCollection>>(() => {
+    const output: Record<string, GeoCollection> = {
+      bibliotecas: libraries,
+      grifos,
+    };
+    layers.forEach((layer, layerIndex) => {
+      if (publishedLayerIds.includes(layer.id) || layer.geometry !== "Punto") return;
+      const offset = ((layerIndex % 5) - 2) * 0.0012;
+      output[layer.id] = {
+        type: "FeatureCollection",
+        features: libraries.features
+          .slice(0, 4 + (layerIndex % 4))
+          .map((feature, index) => {
+            const point = feature.geometry.coordinates as number[];
+            return {
+              ...feature,
+              geometry: {
+                type: "Point" as const,
+                coordinates: [point[0] + offset, point[1] - offset / 2],
+              },
+              properties: {
+                ID: `${layer.theme}-${String(index + 1).padStart(3, "0")}`,
+                NOMBRE: `${layer.name} · registro demostrativo ${index + 1}`,
+                CATEGORIA: index % 2 ? "Privado" : "Público",
+                ESTADO: index % 3 ? "Vigente" : "En revisión",
+                BARRIO: String(feature.properties.BARRIO ?? "Sin información"),
+                TERRITORIO: String(feature.properties.TERRITORIO ?? "Sin información"),
+                COD_MZN: String(feature.properties.COD_MZN ?? "Sin información"),
+                CALIDAD: "DEMOSTRATIVA",
+              },
+            };
+          }),
+      };
+    });
+    return output;
+  }, [libraries, grifos]);
+  const selectedDataset = mapLayerData[selected.id] ?? {
+    type: "FeatureCollection",
+    features: [],
+  };
   const nearestDistance = useMemo(() => {
     if (
       selectedFeature?.geometry.type !== "Point" ||
@@ -545,18 +580,7 @@ export default function Home() {
   const visibleRows = tableRows.filter((r) =>
     Object.values(r).join(" ").toLowerCase().includes(tableQuery.toLowerCase()),
   );
-  const tableColumns =
-    selected.id === "grifos"
-      ? ["ID", "TIPO_EQUIP", "CALIDAD_U", "PRESTADOR_", "FUENTE"]
-      : [
-          "ID",
-          "NOMBRE",
-          "DIRECCION",
-          "UNIDAD",
-          "BARRIO",
-          "DISTRITO",
-          "COD_MZN",
-        ];
+  const tableColumns = [...new Set(tableRows.flatMap((row) => Object.keys(row)))].slice(0, 9);
   const categoryStats = useMemo(() => {
     if (field === "Sin desagregar") return [];
     const counts = new Map<string, number>();
@@ -980,6 +1004,7 @@ export default function Home() {
           <div className="mapmode">
             <button onClick={() => setShowHow(true)}>¿Cómo leer?</button>
             <button onClick={() => setShowReport(true)}>Reporte PDF</button>
+            <button onClick={() => setShowTable(true)}>Tabla de atributos</button>
           </div>
           <div
             className="networkStatus"
@@ -992,6 +1017,8 @@ export default function Home() {
             libraries={libraries}
             grifos={grifos}
             streets={streets}
+            selectedData={selectedDataset}
+            layerData={mapLayerData}
             selectedLayerId={selected.id}
             analysis={analysis}
             active={active}
@@ -1039,12 +1066,14 @@ export default function Home() {
           {selectedFeature && (
             <div className="featureCard">
               <button onClick={() => setSelectedFeature(null)}>×</button>
-              <b>{String(selectedFeature.properties.NOMBRE)}</b>
-              <span>{String(selectedFeature.properties.DIRECCION)}</span>
-              <small>
-                {String(selectedFeature.properties.BARRIO)} · COD_MZN{" "}
-                {String(selectedFeature.properties.COD_MZN)}
-              </small>
+              <b>{String(selectedFeature.properties.NOMBRE ?? selected.name)}</b>
+              {Object.entries(selectedFeature.properties)
+                .filter(([key]) => key !== "NOMBRE")
+                .slice(0, 6)
+                .map(([key, value]) => (
+                  <span key={key}><strong>{key}:</strong> {String(value ?? "Sin dato")}</span>
+                ))}
+              <button className="featureTable" onClick={() => setShowTable(true)}>Ver tabla de atributos</button>
             </div>
           )}
           <div className="mapstats">
@@ -1170,7 +1199,7 @@ export default function Home() {
             <button onClick={() => setShowTable(true)}>
               Tabla de atributos
             </button>
-            <a href="/catalog/layers.json" target="_blank">
+            <a href={`${BASE_PATH}/catalog/layers.json`} target="_blank">
               Catálogo JSON
             </a>
           </section>
@@ -1185,7 +1214,7 @@ export default function Home() {
               {selected.id === "bibliotecas" ? (
                 <>
                   <a
-                    href="/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson"
+                    href={`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`}
                     download
                   >
                     GeoJSON
