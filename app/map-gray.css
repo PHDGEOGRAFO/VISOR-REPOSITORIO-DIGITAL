@@ -1,3 +1,4 @@
 .interactiveMap{background:#d9d9d9!important;}
 .osmTiles image{filter:grayscale(100%) saturate(0%) brightness(1.08) contrast(.88);opacity:.82!important;}
 .map{background-color:#dddddd!important;background-image:none!important;}
+.layerControl small{font-size:6.5px!important;line-height:1.25;color:#7d8985;font-weight:400;opacity:.9;}
