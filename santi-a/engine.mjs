@@ -4,12 +4,14 @@ export const catalog = [
     aliases: ["biblioteca", "bibliotecas"],
     layer: "PTO_BIB_2025_001_BIBLIOTECAS_2025",
     source: "2. BIBLIOTECA DIGITAL",
+    queryable: true,
   },
   {
     id: "reciclaje",
     aliases: ["reciclaje", "punto limpio", "puntos limpios"],
     layer: "PTO_SINADER_2025_001_RECICLAJE",
     source: "2. BIBLIOTECA DIGITAL",
+    queryable: true,
   },
   {
     id: "museos",
@@ -17,6 +19,7 @@ export const catalog = [
     layer: "Museo_Barrio.xlsx",
     source: "2. BIBLIOTECA DIGITAL",
     sourceId: "1mhJwQULMGDUydgJt9w6FCT6wC3pqAO-9",
+    queryable: true,
   },
 ];
 
@@ -32,6 +35,9 @@ export function normalize(text = "") {
 
 export function detectIntent(query) {
   const normalized = normalize(query);
+  if (/(que|qué).*existe.*(poligono|area|sector)|dentro.*(poligono|area)|en este poligono/.test(normalized)) {
+    return "polygon_inventory";
+  }
   if (/donde.*(mayor|mas|concentracion)/.test(normalized)) return "max_concentration";
   if (/donde.*(menor|menos)/.test(normalized)) return "min_concentration";
   if (/cuantos|cantidad/.test(normalized)) return "count";
@@ -48,10 +54,67 @@ export function detectLayer(query) {
   );
 }
 
-export function answer(query, stats) {
-  const intent = detectIntent(query);
-  const layer = detectLayer(query);
+// Recibe el resultado espacial calculado por el visor/API para TODAS las capas
+// catalogadas. La visibilidad actual del mapa no participa en la consulta.
+export function answerPolygon(intersections = {}, options = {}) {
+  const { visibleLayers = [] } = options;
+  const visibleSet = new Set(visibleLayers);
 
+  const results = catalog
+    .filter((entry) => entry.queryable !== false)
+    .map((entry) => {
+      const data = intersections[entry.id] ?? {};
+      const count = Number(data.count ?? 0);
+      return {
+        id: entry.id,
+        layer: entry.layer,
+        source: entry.source,
+        count,
+        mapVisibleBeforeQuery: visibleSet.has(entry.layer),
+        details: data.details ?? null,
+      };
+    })
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const totalFeatures = results.reduce((sum, row) => sum + row.count, 0);
+
+  return {
+    ok: true,
+    intent: "polygon_inventory",
+    summary: results.length
+      ? `En el polígono se detectaron ${results.length} coberturas con ${totalFeatures} registros en total.`
+      : "No se detectaron registros de las coberturas catalogadas dentro del polígono.",
+    results,
+    queriedLayerCount: catalog.filter((entry) => entry.queryable !== false).length,
+    ignoredMapVisibility: true,
+    mapActions: results.map((row) => ({
+      type: "offer_layer",
+      layer: row.layer,
+      initiallyVisible: row.mapVisibleBeforeQuery,
+      count: row.count,
+    })),
+  };
+}
+
+export function answer(query, stats, context = {}) {
+  const intent = detectIntent(query);
+
+  if (intent === "polygon_inventory") {
+    if (!context.polygonIntersections) {
+      return {
+        ok: false,
+        intent,
+        message: "La consulta requiere un polígono dibujado en el visor.",
+        mapActions: [{ type: "start_polygon_draw" }],
+      };
+    }
+    return answerPolygon(context.polygonIntersections, {
+      visibleLayers: context.visibleLayers ?? [],
+    });
+  }
+
+  const layer = detectLayer(query);
   if (!layer) {
     return {
       ok: false,
