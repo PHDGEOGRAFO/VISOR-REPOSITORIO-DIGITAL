@@ -9,6 +9,7 @@ const BASE_PATH="/VISOR-REPOSITORIO-DIGITAL";
 const groups:[Theme,string][]=[
  ["BASE","Base territorial"],["AMB","Ambiental"],["URB","Urbana / territorio y suelo"],["MOV","Movilidad y transporte"],["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"]
 ];
+const thematicGroups=groups.filter(([code])=>code!=="BASE");
 const layers:Layer[]=[
  {id:"comuna",name:"Límite comunal",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/comuna.geojson`,color:"#173f38",description:"Límite oficial de la comuna.",activeDefault:true},
  {id:"territorio",name:"Territorios",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/territorios.geojson`,color:"#356f64",description:"Seis territorios de planificación."},
@@ -50,7 +51,8 @@ export default function Home(){
  const selectedLayer=layers.find(l=>l.id===selected)!;
  const selectedData=data[selected]??empty;
  const nperTotal=useMemo(()=>selected==="manzana"?selectedData.features.reduce((a,f)=>a+(Number(f.properties.n_per)||0),0):0,[selected,selectedData]);
- const filtered=layers.filter(l=>(l.name+" "+groups.find(g=>g[0]===l.theme)?.[1]).toLowerCase().includes(query.toLowerCase()));
+ const thematicLayers=layers.filter(l=>l.theme!=="BASE");
+ const filtered=thematicLayers.filter(l=>(l.name+" "+groups.find(g=>g[0]===l.theme)?.[1]).toLowerCase().includes(query.toLowerCase()));
  const toggle=(id:string)=>setActive(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
  const printPdf=()=>window.print();
  const props=feature?.f.properties||{};
@@ -58,15 +60,15 @@ export default function Home(){
   <header><div className="logo">MS</div><div className="brand"><small>Municipalidad de Santiago</small><h1>Visor Repositorio Digital</h1><p className="officeLabel">Subdirección de Planificación y Sustentabilidad · Oficina de Planificación</p></div><div className="scope"><span>CAPAS ACTIVAS</span><b>{active.length}</b></div><div className="version"><button onClick={printPdf}>PDF</button></div></header>
   <div className="workspace">
    <aside className="sidebar">
-    <div className="catalogHelp"><b>Dimensiones y grupos</b><p>Las coberturas se organizan por temática y soportan punto, línea y polígono.</p></div>
+    <div className="catalogHelp"><b>Dimensiones y grupos</b><p>Las coberturas temáticas se organizan por dimensión. La base territorial se controla directamente sobre el mapa.</p></div>
     <label className="search"><b>⌕</b><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar cobertura…"/></label>
     <div className="layers">
-      {groups.map(([code,label])=>{const gl=filtered.filter(l=>l.theme===code);return <section key={code} className="themeSection"><h4>{label} <span>{gl.length}</span></h4>{gl.length?gl.map(l=><article key={l.id} className={selected===l.id?"selected":""} onClick={()=>setSelected(l.id)}><button className={`switch ${active.includes(l.id)?"on":""}`} onClick={e=>{e.stopPropagation();toggle(l.id)}}><span/></button><em style={{background:l.color}}>{l.geometry==="Punto"?"•":l.geometry==="Línea"?"╱":"▰"}</em><div><h3>{l.name}</h3><p>{l.geometry} · {status[l.id]==="error"?"error de carga":status[l.id]==="cargando"?"cargando…":"disponible"}</p></div></article>):<small className="emptyGroup">Sin capas publicadas</small>}</section>})}
+      {thematicGroups.map(([code,label])=>{const gl=filtered.filter(l=>l.theme===code);return <section key={code} className="themeSection"><h4><span className="themeCode">{code}</span> {label} <span>{gl.length}</span></h4>{gl.length?gl.map(l=><article key={l.id} className={selected===l.id?"selected":""} onClick={()=>setSelected(l.id)}><button className={`switch ${active.includes(l.id)?"on":""}`} onClick={e=>{e.stopPropagation();toggle(l.id)}}><span/></button><em style={{background:l.color}}>{l.geometry==="Punto"?"•":l.geometry==="Línea"?"╱":"▰"}</em><div><h3>{l.name}</h3><p>{l.geometry} · {status[l.id]==="error"?"error de carga":status[l.id]==="cargando"?"cargando…":"disponible"}</p></div></article>):<small className="emptyGroup">Sin capas publicadas</small>}</section>})}
     </div>
    </aside>
    <section className="map">
     <InteractiveMap data={data} active={active} styles={styles} onFeature={(f,layerId)=>{setFeature({f,layerId});setSelected(layerId)}}/>
-    <div className="layerControl"><b>Límites / base</b>{layers.filter(l=>l.theme==="BASE").map(l=><label key={l.id}><input type="checkbox" checked={active.includes(l.id)} onChange={()=>toggle(l.id)}/><i className={`key-${l.id}`}/>{l.name}</label>)}<small>Active solo los límites necesarios para mantener una lectura clara.</small></div>
+    <div className="layerControl"><b>Base territorial</b>{layers.filter(l=>l.theme==="BASE").map(l=><label key={l.id}><input type="checkbox" checked={active.includes(l.id)} onChange={()=>toggle(l.id)}/><i className={`key-${l.id}`}/>{l.name}</label>)}<small>Active solo los límites necesarios para mantener una lectura clara.</small></div>
     <div className="mapmode"><button onClick={printPdf}>Descargar / imprimir PDF</button></div>
    </section>
    <aside className="inspector">
