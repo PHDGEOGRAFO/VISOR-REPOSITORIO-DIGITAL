@@ -18,12 +18,13 @@ jobs:
       - name: Expandir inventario completo
         run: gzip -dc public/catalog/index_coberturas_full.json.gz > public/catalog/index_coberturas.json
       - name: Validar total
-        run: python - <<'PY'
-import json
-p=json.load(open('public/catalog/index_coberturas.json',encoding='utf-8'))
-assert len(p.get('items',[])) >= 900, f"Inventario incompleto: {len(p.get('items',[]))}"
-print('Coberturas:',len(p['items']))
-PY
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('public/catalog/index_coberturas.json',encoding='utf-8'))
+          assert len(p.get('items',[])) >= 900, f"Inventario incompleto: {len(p.get('items',[]))}"
+          print('Coberturas:',len(p['items']))
+          PY
       - name: Publicar índice completo
         run: |
           git config user.name "github-actions[bot]"
