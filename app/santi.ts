@@ -1,0 +1,45 @@
+import type {GeoCollection,GeoFeature} from "./InteractiveMap";
+
+export type SantiAction=
+ |{type:"activate_layer";layerId:string}
+ |{type:"set_viz";mode:"simple"|"cluster"|"heat"|"draw"};
+
+export type PolygonResult={id:string;name:string;count:number;nper?:number};
+export type SantiContext={
+ active:string[];
+ selectedId:string;
+ selectedCount:number;
+ manzanaPopulationSum:number;
+ polygonResults:PolygonResult[]|null;
+};
+
+const norm=(s:string)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s_]/g," ").replace(/\s+/g," ").trim();
+
+type PolygonGeometry={type:"Polygon"|"MultiPolygon";coordinates:any};
+function bboxCoords(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity]){if(!Array.isArray(coords))return b;if(typeof coords[0]==="number"){b[0]=Math.min(b[0],coords[0]);b[1]=Math.min(b[1],coords[1]);b[2]=Math.max(b[2],coords[0]);b[3]=Math.max(b[3],coords[1]);return b}for(const c of coords)bboxCoords(c,b);return b}
+function bbox(g:any){const b=bboxCoords(g?.coordinates);return b.every(Number.isFinite)?b:null}
+function bboxHit(a:number[]|null,b:number[]|null){return !!a&&!!b&&!(a[2]<b[0]||a[0]>b[2]||a[3]<b[1]||a[1]>b[3])}
+function pointInRing(p:number[],r:number[][]){let hit=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if(a[1]>p[1]!==b[1]>p[1]&&p[0]<((b[0]-a[0])*(p[1]-a[1]))/((b[1]-a[1])||Number.EPSILON)+a[0])hit=!hit}return hit}
+function pointInPolygon(p:number[],g:PolygonGeometry):boolean{if(g.type==="MultiPolygon")return g.coordinates.some((poly:any)=>pointInPolygon(p,{type:"Polygon",coordinates:poly}));const[outer,...holes]=g.coordinates;return pointInRing(p,outer)&&!holes.some((h:number[][])=>pointInRing(p,h))}
+function orient(a:number[],b:number[],c:number[]){const v=(b[1]-a[1])*(c[0]-b[0])-(b[0]-a[0])*(c[1]-b[1]);return Math.abs(v)<1e-12?0:v>0?1:2}
+function onSeg(a:number[],b:number[],c:number[]){return b[0]<=Math.max(a[0],c[0])+1e-12&&b[0]+1e-12>=Math.min(a[0],c[0])&&b[1]<=Math.max(a[1],c[1])+1e-12&&b[1]+1e-12>=Math.min(a[1],c[1])}
+function segHit(p1:number[],q1:number[],p2:number[],q2:number[]){const o1=orient(p1,q1,p2),o2=orient(p1,q1,q2),o3=orient(p2,q2,p1),o4=orient(p2,q2,q1);if(o1!==o2&&o3!==o4)return true;return(o1===0&&onSeg(p1,p2,q1))||(o2===0&&onSeg(p1,q2,q1))||(o3===0&&onSeg(p2,p1,q2))||(o4===0&&onSeg(p2,q1,q2))}
+function polyEdges(g:any){const polys=g.type==="MultiPolygon"?g.coordinates:[g.coordinates],out:any[]=[];for(const poly of polys)for(const ring of poly)for(let i=1;i<ring.length;i++)out.push([ring[i-1],ring[i]]);return out}
+function lineSegs(g:any){const ls=g.type==="MultiLineString"?g.coordinates:[g.coordinates],out:any[]=[];for(const l of ls)for(let i=1;i<l.length;i++)out.push([l[i-1],l[i]]);return out}
+export function intersectsPolygon(g:any,p:PolygonGeometry){if(!g||!bboxHit(bbox(g),bbox(p)))return false;if(g.type==="Point")return pointInPolygon(g.coordinates,p);if(g.type==="MultiPoint")return g.coordinates.some((x:number[])=>pointInPolygon(x,p));const pe=polyEdges(p);if(g.type==="LineString"||g.type==="MultiLineString")return lineSegs(g).some(([a,b]:any)=>pointInPolygon(a,p)||pointInPolygon(b,p)||pe.some(([c,d]:any)=>segHit(a,b,c,d)));if(g.type==="Polygon"||g.type==="MultiPolygon"){const ce=polyEdges(g);if(ce.some(([a,b]:any)=>pe.some(([c,d]:any)=>segHit(a,b,c,d))))return true;const cp=g.type==="Polygon"?g.coordinates[0][0]:g.coordinates[0][0][0],qp=p.type==="Polygon"?p.coordinates[0][0]:p.coordinates[0][0][0];return pointInPolygon(cp,p)||pointInPolygon(qp,g)}return false}
+export function featuresInPolygon(fc:GeoCollection|undefined,p:PolygonGeometry){return(fc?.features??[]).filter((f:GeoFeature)=>intersectsPolygon(f.geometry,p))}
+export function analyzePolygon(p:PolygonGeometry,data:Record<string,GeoCollection>,meta:{id:string;name:string}[]):PolygonResult[]{return meta.map(m=>{const hits=featuresInPolygon(data[m.id],p);const r:PolygonResult={id:m.id,name:m.name,count:hits.length};if(m.id==="manzana")r.nper=hits.reduce((s,f)=>s+(Number(f.properties.n_per)||0),0);return r}).filter(r=>r.count>0).sort((a,b)=>b.count-a.count)}
+
+export function runSanti(query:string,ctx:SantiContext){
+ const q=norm(query),actions:SantiAction[]=[];
+ if(/lineas oficiales|expropiacion/.test(q)){actions.push({type:"activate_layer",layerId:"lineas-prc"});return{summary:"Activo Líneas Oficiales PRC usando solo la cobertura lineal de expropiación.",actions};}
+ if(/grifos?/.test(q)){actions.push({type:"activate_layer",layerId:"grifos"});return{summary:"Activo la cobertura de grifos.",actions};}
+ if(/bibliotecas?/.test(q)){actions.push({type:"activate_layer",layerId:"bibliotecas"});return{summary:"Activo Bibliotecas 2025.",actions};}
+ if(/manzanas?|censo 2024|n_per|poblacion/.test(q)){actions.push({type:"activate_layer",layerId:"manzana"});if(/cuant|total|suma/.test(q))return{summary:`La base de Manzanas Censo 2024 suma ${ctx.manzanaPopulationSum.toLocaleString("es-CL")} personas en n_per.`,actions};return{summary:"Activo Manzanas Censo 2024. COD_MZN es la llave y n_per la población operativa.",actions};}
+ if(/cluster|clúster/.test(query.toLowerCase())){actions.push({type:"set_viz",mode:"cluster"});return{summary:"Activo visualización Clúster.",actions};}
+ if(/calor|heat/.test(q)){actions.push({type:"set_viz",mode:"heat"});return{summary:"Activo mapa de calor.",actions};}
+ if(/dibuj/.test(q)){actions.push({type:"set_viz",mode:"draw"});return{summary:"Activo la herramienta Polígono. Dibuja el área de consulta sobre el mapa.",actions};}
+ if(/que existe|dentro.*poligono|en este poligono|consulta.*poligono/.test(q)){if(!ctx.polygonResults){actions.push({type:"set_viz",mode:"draw"});return{summary:"Primero dibuja un polígono. Luego consultaré todas las coberturas cargadas, aunque estén apagadas.",actions};}const total=ctx.polygonResults.reduce((s,r)=>s+r.count,0),pop=ctx.polygonResults.find(r=>r.id==="manzana")?.nper??0,detail=ctx.polygonResults.slice(0,6).map(r=>`${r.name}: ${r.count}`).join(" · ");return{summary:ctx.polygonResults.length?`El polígono intersecta ${ctx.polygonResults.length} capas y ${total.toLocaleString("es-CL")} elementos. ${detail}${pop?` · Población n_per: ${pop.toLocaleString("es-CL")}`:""}.`:"No encontré elementos de las coberturas cargadas dentro del polígono.",actions};}
+ if(/cuantos|cantidad|registros/.test(q))return{summary:`La capa seleccionada contiene ${ctx.selectedCount.toLocaleString("es-CL")} registros cargados.`,actions};
+ return{summary:"Puedo activar capas y herramientas, consultar población n_per y analizar todas las coberturas dentro de un polígono.",actions};
+}
