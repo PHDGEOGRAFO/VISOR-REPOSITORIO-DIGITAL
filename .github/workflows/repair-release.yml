@@ -1,0 +1,49 @@
+name: Reparar y preparar Visor
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/repair-release.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-visor
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corregir cargador de capas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='}).catch(()=>setStatus(s=>({...s,[layer.id]:"error"})))})},[population]);'
+          new='}).catch(()=>setStatus(s=>({...s,[layer.id]:"error"})));});},[population]);'
+          if old not in s:
+              raise SystemExit('No se encontró el patrón esperado de reparación en page.tsx')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Expandir inventario completo Biblioteca Digital
+        run: |
+          gzip -dc public/catalog/index_coberturas_full.json.gz > public/catalog/index_coberturas.json
+          python - <<'PY'
+          import json
+          p=json.load(open('public/catalog/index_coberturas.json',encoding='utf-8'))
+          n=len(p.get('items',[]))
+          assert n>=900, f'Inventario incompleto: {n}'
+          print('Coberturas publicadas en índice:',n)
+          PY
+      - name: Guardar reparación
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx public/catalog/index_coberturas.json
+          git commit -m "Visor: corregir carga y publicar catálogo completo Biblioteca Digital"
+          git push
