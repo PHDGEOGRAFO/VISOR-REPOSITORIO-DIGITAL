@@ -1,0 +1,33 @@
+{
+  "name": "poligono_prueba_casco_historico_santa_lucia_forestal",
+  "description": "Poligono de 100 x 100 m construido sobre el limite comun de dos barrios oficiales para validar la consulta espacial de Santi_A.",
+  "source": "2. BIBLIOTECA DIGITAL / URB_GIS_LIMITE_BARRIOS_STGO / URB_POL_LIMITE_BARRIOS_STGO",
+  "sourceCrs": "EPSG:32719",
+  "viewerCrs": "EPSG:4326",
+  "polygonWgs84": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-70.64690568978641, -33.435692296696836],
+      [-70.64688865403495, -33.43479069585844],
+      [-70.6479639976631, -33.434776408228466],
+      [-70.64798104452585, -33.43567800858068],
+      [-70.64690568978641, -33.435692296696836]
+    ]]
+  },
+  "expected": {
+    "intersectedBarrios": 2,
+    "barrios": [
+      {
+        "name": "CASCO HISTORICO",
+        "intersectionAreaM2": 5000.000000005821,
+        "shareOfPolygonPct": 50.0
+      },
+      {
+        "name": "SANTA LUCIA - FORESTAL",
+        "intersectionAreaM2": 4999.999999994179,
+        "shareOfPolygonPct": 50.0
+      }
+    ],
+    "thirdBarrioIntersection": false
+  }
+}
