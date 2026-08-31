@@ -14,8 +14,9 @@ export const catalog = [
   {
     id: "museos",
     aliases: ["museo", "museos"],
-    layer: "PTO_MUSEOS",
+    layer: "Museo_Barrio.xlsx",
     source: "2. BIBLIOTECA DIGITAL",
+    sourceId: "1mhJwQULMGDUydgJt9w6FCT6wC3pqAO-9",
   },
 ];
 
@@ -70,12 +71,15 @@ export function answer(query, stats) {
     const top = [...rows].sort((a, b) => b.count - a.count)[0];
     const total = rows.reduce((sum, row) => sum + row.count, 0);
     const percentage = total ? ((top.count / total) * 100).toFixed(1) : "0.0";
+    const territoryText = top.territorio
+      ? `, territorio ${top.territorio}`
+      : ", territorio pendiente de cruce con cartografía oficial";
 
     return {
       ok: true,
       layer: layer.layer,
       source: layer.source,
-      summary: `La mayor concentración de ${layer.id} se encuentra en ${top.barrio}, territorio ${top.territorio}: ${top.count} registros (${percentage}% del total analizado).`,
+      summary: `La mayor concentración de ${layer.id} se encuentra en ${top.barrio}${territoryText}: ${top.count} registros (${percentage}% del total analizado).`,
       stats: { ...top, total },
       mapActions: [
         { type: "activate_layer", layer: layer.layer },
