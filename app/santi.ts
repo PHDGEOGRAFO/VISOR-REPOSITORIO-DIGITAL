@@ -2,19 +2,22 @@ import type {GeoCollection,GeoFeature} from "./InteractiveMap";
 
 export type SantiAction=
  |{type:"activate_layer";layerId:string}
- |{type:"set_viz";mode:"simple"|"cluster"|"heat"|"draw"};
+ |{type:"set_viz";mode:"simple"|"cluster"|"heat"|"draw"}
+ |{type:"set_analysis";analysis:string};
 
 export type PolygonResult={id:string;name:string;count:number;nper?:number};
 export type SantiContext={
  active:string[];
  selectedId:string;
  selectedCount:number;
+ counts:{comuna:number;territorio:number;barrio:number;manzana:number;grifos:number;bibliotecas:number};
  manzanaPopulationSum:number;
  polygonResults:PolygonResult[]|null;
+ barrioNames:string[];
+ territorioNames:string[];
 };
 
 const norm=(s:string)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s_]/g," ").replace(/\s+/g," ").trim();
-
 type PolygonGeometry={type:"Polygon"|"MultiPolygon";coordinates:any};
 function bboxCoords(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity]){if(!Array.isArray(coords))return b;if(typeof coords[0]==="number"){b[0]=Math.min(b[0],coords[0]);b[1]=Math.min(b[1],coords[1]);b[2]=Math.max(b[2],coords[0]);b[3]=Math.max(b[3],coords[1]);return b}for(const c of coords)bboxCoords(c,b);return b}
 function bbox(g:any){const b=bboxCoords(g?.coordinates);return b.every(Number.isFinite)?b:null}
@@ -32,14 +35,25 @@ export function analyzePolygon(p:PolygonGeometry,data:Record<string,GeoCollectio
 
 export function runSanti(query:string,ctx:SantiContext){
  const q=norm(query),actions:SantiAction[]=[];
- if(/lineas oficiales|expropiacion/.test(q)){actions.push({type:"activate_layer",layerId:"lineas-prc"});return{summary:"Activo Líneas Oficiales PRC usando solo la cobertura lineal de expropiación.",actions};}
- if(/grifos?/.test(q)){actions.push({type:"activate_layer",layerId:"grifos"});return{summary:"Activo la cobertura de grifos.",actions};}
- if(/bibliotecas?/.test(q)){actions.push({type:"activate_layer",layerId:"bibliotecas"});return{summary:"Activo Bibliotecas 2025.",actions};}
- if(/manzanas?|censo 2024|n_per|poblacion/.test(q)){actions.push({type:"activate_layer",layerId:"manzana"});if(/cuant|total|suma/.test(q))return{summary:`La base de Manzanas Censo 2024 suma ${ctx.manzanaPopulationSum.toLocaleString("es-CL")} personas en n_per.`,actions};return{summary:"Activo Manzanas Censo 2024. COD_MZN es la llave y n_per la población operativa.",actions};}
- if(/cluster|clúster/.test(query.toLowerCase())){actions.push({type:"set_viz",mode:"cluster"});return{summary:"Activo visualización Clúster.",actions};}
- if(/calor|heat/.test(q)){actions.push({type:"set_viz",mode:"heat"});return{summary:"Activo mapa de calor.",actions};}
- if(/dibuj/.test(q)){actions.push({type:"set_viz",mode:"draw"});return{summary:"Activo la herramienta Polígono. Dibuja el área de consulta sobre el mapa.",actions};}
- if(/que existe|dentro.*poligono|en este poligono|consulta.*poligono/.test(q)){if(!ctx.polygonResults){actions.push({type:"set_viz",mode:"draw"});return{summary:"Primero dibuja un polígono. Luego consultaré todas las coberturas cargadas, aunque estén apagadas.",actions};}const total=ctx.polygonResults.reduce((s,r)=>s+r.count,0),pop=ctx.polygonResults.find(r=>r.id==="manzana")?.nper??0,detail=ctx.polygonResults.slice(0,6).map(r=>`${r.name}: ${r.count}`).join(" · ");return{summary:ctx.polygonResults.length?`El polígono intersecta ${ctx.polygonResults.length} capas y ${total.toLocaleString("es-CL")} elementos. ${detail}${pop?` · Población n_per: ${pop.toLocaleString("es-CL")}`:""}.`:"No encontré elementos de las coberturas cargadas dentro del polígono.",actions};}
+ const isCount=/cuant|numero|número|cantidad|total/.test(query.toLowerCase());
+ if(/barrios?/.test(q)&&isCount)return{summary:`La cobertura oficial cargada contiene ${ctx.counts.barrio.toLocaleString("es-CL")} barrios.`,actions};
+ if(/territorios?/.test(q)&&isCount)return{summary:`La cobertura territorial cargada contiene ${ctx.counts.territorio.toLocaleString("es-CL")} territorios de planificación.`,actions};
+ if(/manzanas?/.test(q)&&isCount&&!/poblacion|n_per/.test(q))return{summary:`La base Censo 2024 contiene ${ctx.counts.manzana.toLocaleString("es-CL")} manzanas cargadas.`,actions};
+ if(/grifos?/.test(q)&&isCount)return{summary:`La cobertura de grifos contiene ${ctx.counts.grifos.toLocaleString("es-CL")} registros.`,actions};
+ if(/bibliotecas?/.test(q)&&isCount)return{summary:`La cobertura de bibliotecas contiene ${ctx.counts.bibliotecas.toLocaleString("es-CL")} registros.`,actions};
+ if(/nombres?.*barrios|cuales.*barrios|lista.*barrios/.test(q))return{summary:ctx.barrioNames.length?`Barrios cargados: ${ctx.barrioNames.join(", ")}.`:"La cobertura de barrios aún no está disponible para listar nombres.",actions};
+ if(/nombres?.*territorios|cuales.*territorios|lista.*territorios/.test(q))return{summary:ctx.territorioNames.length?`Territorios: ${ctx.territorioNames.join(", ")}.`:"La cobertura de territorios aún no está disponible para listar nombres.",actions};
+ if(/lineas oficiales|expropiacion/.test(q)){actions.push({type:"activate_layer",layerId:"lineas-prc"});return{summary:"Activo Líneas Oficiales PRC. La visualización admite únicamente LineString y MultiLineString; cualquier geometría poligonal se descarta.",actions};}
+ if(/grifos?/.test(q)){actions.push({type:"activate_layer",layerId:"grifos"});return{summary:"Activo la variable temática Grifos. No forma parte de la base territorial predeterminada.",actions};}
+ if(/bibliotecas?/.test(q)){actions.push({type:"activate_layer",layerId:"bibliotecas"});return{summary:"Activo la variable temática Bibliotecas. No forma parte de la base territorial predeterminada.",actions};}
+ if(/manzanas?|censo 2024|n_per|poblacion/.test(q)){actions.push({type:"activate_layer",layerId:"manzana"});if(isCount||/suma/.test(q))return{summary:`La base de Manzanas Censo 2024 suma ${ctx.manzanaPopulationSum.toLocaleString("es-CL")} personas en n_per.`,actions};return{summary:"Activo Manzanas Censo 2024. COD_MZN es la llave y n_per la población operativa.",actions};}
+ if(/cluster|clúster/.test(query.toLowerCase())){actions.push({type:"set_viz",mode:"cluster"});return{summary:"Activo Clúster. Esta visualización requiere una capa de puntos seleccionada.",actions};}
+ if(/calor|heat/.test(q)){actions.push({type:"set_viz",mode:"heat"});return{summary:"Activo Mapa de calor. Esta visualización requiere una capa de puntos seleccionada.",actions};}
+ if(/isocrona|isócrona|isocronas|isócronas/.test(query.toLowerCase())){actions.push({type:"set_analysis",analysis:"Isócronas"});return{summary:"Activo Isócronas. Selecciona un punto de origen y define modo y tiempo de viaje.",actions};}
+ if(/proximidad|buffer/.test(q)){actions.push({type:"set_analysis",analysis:"Proximidad"});return{summary:"Activo análisis de Proximidad. Selecciona un punto y define la distancia máxima.",actions};}
+ if(/densidad/.test(q)){actions.push({type:"set_analysis",analysis:"Densidad"});return{summary:"Activo análisis de Densidad para la capa seleccionada.",actions};}
+ if(/dibuj|poligono/.test(q)&&!/que existe|dentro|consulta/.test(q)){actions.push({type:"set_viz",mode:"draw"});return{summary:"Activo la herramienta Polígono. Dibuja el área de consulta sobre el mapa.",actions};}
+ if(/que existe|dentro.*poligono|en este poligono|consulta.*poligono/.test(q)){if(!ctx.polygonResults){actions.push({type:"set_viz",mode:"draw"});return{summary:"Primero dibuja un polígono. Luego consultaré todas las coberturas cargadas, incluso las que estén apagadas.",actions};}const total=ctx.polygonResults.reduce((s,r)=>s+r.count,0),pop=ctx.polygonResults.find(r=>r.id==="manzana")?.nper??0,detail=ctx.polygonResults.slice(0,7).map(r=>`${r.name}: ${r.count}`).join(" · ");return{summary:ctx.polygonResults.length?`El polígono intersecta ${ctx.polygonResults.length} capas y ${total.toLocaleString("es-CL")} elementos. ${detail}${pop?` · Población n_per: ${pop.toLocaleString("es-CL")}`:""}.`:"No encontré elementos dentro del polígono.",actions};}
  if(/cuantos|cantidad|registros/.test(q))return{summary:`La capa seleccionada contiene ${ctx.selectedCount.toLocaleString("es-CL")} registros cargados.`,actions};
- return{summary:"Puedo activar capas y herramientas, consultar población n_per y analizar todas las coberturas dentro de un polígono.",actions};
+ return{summary:"Soy Santi_A, asistente territorial del visor. Puedo responder conteos y nombres de barrios/territorios, consultar población n_per, activar coberturas, trabajar con Clúster, Calor, Proximidad e Isócronas y analizar todas las capas que intersectan un polígono dibujado.",actions};
 }
