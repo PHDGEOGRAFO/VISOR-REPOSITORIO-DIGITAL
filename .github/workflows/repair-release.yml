@@ -24,11 +24,17 @@ jobs:
           from pathlib import Path
           p=Path('app/page.tsx')
           s=p.read_text(encoding='utf-8')
-          old='}).catch(()=>setStatus(s=>({...s,[layer.id]:"error"})))})},[population]);'
-          new='}).catch(()=>setStatus(s=>({...s,[layer.id]:"error"})));});},[population]);'
-          if old not in s:
-              raise SystemExit('No se encontró el patrón esperado de reparación en page.tsx')
-          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          needle='.catch(()=>setStatus(s=>({...s,[layer.id]:"error"})))'
+          pos=s.find(needle)
+          if pos < 0:
+              raise SystemExit('No se encontró el catch esperado en page.tsx')
+          tail='})},[population]);'
+          end=s.find(tail,pos+len(needle))
+          if end < 0:
+              raise SystemExit('No se encontró el cierre del useEffect esperado')
+          s=s[:pos]+needle+';});},[population]);'+s[end+len(tail):]
+          p.write_text(s,encoding='utf-8')
+          print('Cargador de capas corregido')
           PY
       - name: Expandir inventario completo Biblioteca Digital
         run: |
