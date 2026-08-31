@@ -1,0 +1,46 @@
+name: Sincronizar Biblioteca Digital
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+  push:
+    paths:
+      - 'scripts/sync_biblioteca_catalog.py'
+      - '.github/workflows/sync-biblioteca.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-biblioteca-digital
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: pip install --disable-pip-version-check pandas openpyxl requests
+      - name: Generar índice desde Biblioteca Digital
+        env:
+          BIBLIOTECA_CONTROL_FILE_ID: 1yDL59OYZurxeh17lCDrjtyDBl3ZMUsx4
+          BIBLIOTECA_CONTROL_URL: ${{ secrets.BIBLIOTECA_CONTROL_URL }}
+        run: |
+          if [ -z "$BIBLIOTECA_CONTROL_URL" ]; then unset BIBLIOTECA_CONTROL_URL; fi
+          python scripts/sync_biblioteca_catalog.py
+      - name: Publicar cambios del índice
+        run: |
+          if git diff --quiet -- public/catalog/index_coberturas.json; then
+            echo "Sin cambios en Biblioteca Digital"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/catalog/index_coberturas.json
+          git commit -m "Catálogo: sincronizar 2. Biblioteca Digital"
+          git push
