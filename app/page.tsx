@@ -1,7 +1,7 @@
 "use client";
-import {useEffect,useState} from "react";
-import InteractiveMap,{GeoCollection,GeoFeature,LayerStyle,VizMode} from "./InteractiveMap";
-import {runSanti} from "./santi";
+import {useEffect,useMemo,useState} from "react";
+import InteractiveMap,{DrawPolygon,GeoCollection,GeoFeature,LayerStyle,VizMode} from "./InteractiveMap";
+import {analyzePolygon,featuresInPolygon,runSanti} from "./santi";
 
 type Geometry="Punto"|"Línea"|"Polígono";
 type Theme="BASE"|"AMB"|"URB"|"MOV"|"SEG"|"SAL"|"ECO"|"SOC";
@@ -30,24 +30,28 @@ export default function Home(){
  const[population,setPopulation]=useState<Record<string,number|null>>({});
  const[status,setStatus]=useState<Record<string,string>>({});
  const[viz,setViz]=useState<VizMode>("simple");
+ const[polygon,setPolygon]=useState<DrawPolygon|null>(null);
  const[spatialSelection,setSpatialSelection]=useState<GeoFeature[]|null>(null);
  const[analysis,setAnalysis]=useState("Cantidad de registros");
  const[santiQuery,setSantiQuery]=useState("");
- const[santiReply,setSantiReply]=useState("Santi_A conectado. Puedo activar capas y herramientas del mapa.");
+ const[santiReply,setSantiReply]=useState("Santi_A conectado. Puedo activar capas, herramientas y consultar áreas dibujadas.");
  useEffect(()=>{fetch(`${BASE_PATH}/data/manzanas_poblacion_2024.json`).then(r=>r.ok?r.json():{}).then(setPopulation).catch(()=>setPopulation({}))},[]);
- useEffect(()=>{const needed=new Set([...active,selected]);needed.forEach(id=>{const layer=layers.find(l=>l.id===id);if(!layer)return;if(data[id]&&!(layer.populationJoin&&Object.keys(population).length))return;if(status[id]==="cargando")return;setStatus(s=>({...s,[id]:"cargando"}));fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then((fc:GeoCollection)=>{if(layer.populationJoin)fc={...fc,features:fc.features.map(f=>{const p={...f.properties},cod=String(p.COD_MZN??p.cod_mzn??"");p.COD_MZN=cod;p.n_per=population[cod]??p.n_per??p.POBLACION??null;return{...f,properties:p}})};setData(d=>({...d,[id]:fc}));setStatus(s=>({...s,[id]:"ok"}))}).catch(()=>setStatus(s=>({...s,[id]:"error"})))});},[active,selected,population]);
+ useEffect(()=>{const needed=new Set(layers.map(l=>l.id));needed.forEach(id=>{const layer=layers.find(l=>l.id===id);if(!layer)return;if(data[id]&&!(layer.populationJoin&&Object.keys(population).length))return;if(status[id]==="cargando")return;setStatus(s=>({...s,[id]:"cargando"}));fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then((fc:GeoCollection)=>{if(layer.populationJoin)fc={...fc,features:fc.features.map(f=>{const p={...f.properties},cod=String(p.COD_MZN??p.cod_mzn??"");p.COD_MZN=cod;p.n_per=population[cod]??p.n_per??p.POBLACION??null;return{...f,properties:p}})};setData(d=>({...d,[id]:fc}));setStatus(s=>({...s,[id]:"ok"}))}).catch(()=>setStatus(s=>({...s,[id]:"error"})))});},[population]);
  const selectedLayer=layers.find(l=>l.id===selected)!;
  const selectedData=data[selected]??empty;
  const sourceFeatures=spatialSelection??selectedData.features;
  const nperValues=sourceFeatures.map(f=>Number(f.properties.n_per)).filter(Number.isFinite);
  const nperSum=nperValues.reduce((a,b)=>a+b,0);
+ const manzanaPopulationSum=(data.manzana?.features??[]).reduce((s,f)=>s+(Number(f.properties.n_per)||0),0);
+ const polygonResults=useMemo(()=>polygon?analyzePolygon(polygon,data,layers.map(l=>({id:l.id,name:l.name}))):null,[polygon,data]);
  const analysisValue=analysis==="Suma n_per"?nperSum:analysis==="Promedio n_per"?(nperValues.length?nperSum/nperValues.length:0):sourceFeatures.length;
  const thematicLayers=layers.filter(l=>l.theme!=="BASE"&&!l.mapTool);
  const filtered=thematicLayers.filter(l=>(l.name+" "+groups.find(g=>g[0]===l.theme)?.[1]).toLowerCase().includes(query.toLowerCase()));
  const toggle=(id:string)=>setActive(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
  const ensureActive=(id:string)=>setActive(a=>a.includes(id)?a:[...a,id]);
- const setMode=(m:VizMode)=>{setViz(m);if(m!=="draw")setSpatialSelection(null)};
- const askSanti=()=>{const r=runSanti(santiQuery,{layerIds:layers.map(l=>l.id),active,selectedId:selected,selectedCount:selectedData.features.length,selectedNperSum:nperSum,polygonCount:spatialSelection?spatialSelection.length:null});r.actions.forEach(a=>{if(a.type==="activate_layer"){ensureActive(a.layerId);setSelected(a.layerId)}if(a.type==="set_viz")setMode(a.mode)});setSantiReply(r.summary);};
+ const setMode=(m:VizMode)=>{setViz(m);if(m!=="draw"){setPolygon(null);setSpatialSelection(null)}};
+ const handlePolygon=(p:DrawPolygon|null)=>{setPolygon(p);setSpatialSelection(p?featuresInPolygon(data[selected],p):null);if(p)setSantiReply("Polígono recibido. Santi_A puede consultar todas las coberturas, incluso las que están apagadas.")};
+ const askSanti=()=>{const r=runSanti(santiQuery,{active,selectedId:selected,selectedCount:selectedData.features.length,manzanaPopulationSum,polygonResults});r.actions.forEach(a=>{if(a.type==="activate_layer"){ensureActive(a.layerId);setSelected(a.layerId);if(polygon)setSpatialSelection(featuresInPolygon(data[a.layerId],polygon))}if(a.type==="set_viz")setMode(a.mode)});setSantiReply(r.summary);};
  const printPdf=()=>window.print();
  const props=feature?.f.properties||{};
  const lineasOn=active.includes("lineas-prc");
@@ -57,18 +61,18 @@ export default function Home(){
    <aside className="sidebar">
     <div className="catalogHelp"><b>Dimensiones y grupos</b><p>Las capas temáticas se ordenan por dimensión. La base territorial y las herramientas se controlan sobre el mapa.</p></div>
     <label className="search"><b>⌕</b><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar cobertura…"/></label>
-    <div className="layers">{thematicGroups.map(([code,label])=>{const gl=filtered.filter(l=>l.theme===code);return <section key={code} className="themeSection"><h4><span className="themeCode">{code}</span> {label}<span>{gl.length}</span></h4>{gl.length?gl.map(l=><article key={l.id} className={selected===l.id?"selected":""} onClick={()=>{setSelected(l.id);setSpatialSelection(null)}}><button className={`switch ${active.includes(l.id)?"on":""}`} onClick={e=>{e.stopPropagation();toggle(l.id)}}><span/></button><em style={{background:l.color}}>{l.geometry==="Punto"?"•":"▰"}</em><div><h3>{l.name}</h3><p>{l.geometry} · {status[l.id]==="error"?"error":status[l.id]==="cargando"?"cargando…":"disponible"}</p></div></article>):<small className="emptyGroup">Sin capas publicadas</small>}</section>})}</div>
+    <div className="layers">{thematicGroups.map(([code,label])=>{const gl=filtered.filter(l=>l.theme===code);return <section key={code} className="themeSection"><h4><span className="themeCode">{code}</span> {label}<span>{gl.length}</span></h4>{gl.length?gl.map(l=><article key={l.id} className={selected===l.id?"selected":""} onClick={()=>{setSelected(l.id);setSpatialSelection(polygon?featuresInPolygon(data[l.id],polygon):null)}}><button className={`switch ${active.includes(l.id)?"on":""}`} onClick={e=>{e.stopPropagation();toggle(l.id)}}><span/></button><em style={{background:l.color}}>{l.geometry==="Punto"?"•":"▰"}</em><div><h3>{l.name}</h3><p>{l.geometry} · {status[l.id]==="error"?"error":status[l.id]==="cargando"?"cargando…":"disponible"}</p></div></article>):<small className="emptyGroup">Sin capas publicadas</small>}</section>})}</div>
    </aside>
    <section className="map">
-    <InteractiveMap data={data} active={active} styles={styles} selectedLayerId={selected} viz={viz} onSelection={setSpatialSelection} onFeature={(f,layerId)=>{setFeature({f,layerId});setSelected(layerId)}}/>
+    <InteractiveMap data={data} active={active} styles={styles} selectedLayerId={selected} viz={viz} onPolygon={handlePolygon} onFeature={(f,layerId)=>{setFeature({f,layerId});setSelected(layerId);setSpatialSelection(polygon?featuresInPolygon(data[layerId],polygon):null)}}/>
     <div className="layerControl"><b>Base territorial</b>{layers.filter(l=>l.theme==="BASE").map(l=><label key={l.id}><input type="checkbox" checked={active.includes(l.id)} onChange={()=>toggle(l.id)}/><i className={`key-${l.id}`}/>{l.name}</label>)}<small>Active solo los límites necesarios para mantener una lectura clara.</small></div>
     <div className="analysisTools"><b>Herramientas del mapa</b><div className="toolButtons"><button className={viz==="simple"?"on":""} onClick={()=>setMode("simple")}>Puntos</button><button className={viz==="cluster"?"on":""} onClick={()=>setMode("cluster")}>Clúster</button><button className={viz==="heat"?"on":""} onClick={()=>setMode("heat")}>Calor</button><button className={viz==="draw"?"on":""} onClick={()=>setMode("draw")}>Polígono</button><button className={lineasOn?"on prc":"prc"} onClick={()=>toggle("lineas-prc")}>Líneas oficiales</button></div><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}><option>Cantidad de registros</option><option>Suma n_per</option><option>Promedio n_per</option></select></label><p className="analysisResult"><strong>{analysisValue.toLocaleString("es-CL",{maximumFractionDigits:2})}</strong> {analysis}{spatialSelection?` · selección: ${spatialSelection.length}`:""}</p></div>
     <div className="mapmode"><button onClick={printPdf}>Descargar / imprimir PDF</button></div>
    </section>
    <aside className="inspector">
-    <section className="santiPanel"><div className="santiHead"><b>Santi_A</b><span>Agente Territorial IA · beta</span></div><p>{santiReply}</p><div className="santiAsk"><input value={santiQuery} onChange={e=>setSantiQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSanti()}} placeholder="Ej.: mostrar grifos o dibujar polígono"/><button onClick={askSanti}>Consultar</button></div></section>
+    <section className="santiPanel"><div className="santiHead"><b>Santi_A</b><span>Agente Territorial IA · beta</span></div><p>{santiReply}</p><div className="santiAsk"><input value={santiQuery} onChange={e=>setSantiQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askSanti()}} placeholder="Ej.: ¿qué existe en este polígono?"/><button onClick={askSanti}>Consultar</button></div></section>
     <p className="kicker">CAPA SELECCIONADA</p><div className="title"><em style={{background:selectedLayer.color}}>{selectedLayer.geometry==="Punto"?"•":selectedLayer.geometry==="Línea"?"╱":"▰"}</em><div><h2>{selectedLayer.name}</h2><p>{groups.find(g=>g[0]===selectedLayer.theme)?.[1]} · {selectedLayer.geometry}</p></div></div>
-    <p>{selectedLayer.description}</p><div className="summary"><div><b>{selectedData.features.length.toLocaleString("es-CL")}</b> registros cargados</div>{spatialSelection&&<div><b>{spatialSelection.length.toLocaleString("es-CL")}</b> seleccionados por polígono</div>}</div>
+    <p>{selectedLayer.description}</p><div className="summary"><div><b>{selectedData.features.length.toLocaleString("es-CL")}</b> registros cargados</div>{spatialSelection&&<div><b>{spatialSelection.length.toLocaleString("es-CL")}</b> intersectados por polígono</div>}{polygonResults&&<div><b>{polygonResults.length}</b> capas intersectadas por Santi_A</div>}</div>
     {feature&&<div className="featureDetails"><p className="kicker">ELEMENTO CONSULTADO</p>{Object.entries(props).slice(0,12).map(([k,v])=><p key={k}><strong>{k}</strong><span>{String(v??"Sin dato")}</span></p>)}</div>}
     <div className="actions"><button className="primary" onClick={printPdf}>Descargar / imprimir PDF</button></div>
    </aside>
