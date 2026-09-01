@@ -1,0 +1,116 @@
+name: Revision integral visor 20260901
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/revision-integral-visor-20260901.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  revisar-corregir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Corregir interfaz e impresion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          # Branding visible: conservar nombres internos runSanti/santi.ts, cambiar solo textos UI.
+          s=s.replace('Soy SANTI. Puedo consultar', 'Soy SantIA. Puedo consultar')
+          s=s.replace('por SANTI', 'por SantIA')
+          s=s.replace('<b>SANTI</b><span>Asistente territorial · beta</span>', '<b>SantIA</b><span>Asistente territorial · beta</span>')
+          s=s.replace('<b>SANTI:</b>', '<b>SantIA:</b>')
+          s=s.replace('Oficina de Planificación</small>', 'Oficina de Planificación Estratégica</small>')
+
+          # Panel del indice: posición móvil + plegado KISS.
+          old='const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");const[sidebarQuery,setSidebarQuery]=useState("");'
+          new='const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");const[sidebarQuery,setSidebarQuery]=useState("");const[indexPos,setIndexPos]=useState({x:0,y:0});const[indexCompact,setIndexCompact]=useState(false);'
+          if old in s: s=s.replace(old,new,1)
+
+          anchor=' const openDimension=(dim:string)=>{setIndexDimension(dim);setIndexSector("TODOS");setIndexQuery("");setIndexOpen(true)};'
+          drag=''' const startIndexDrag=(e:any)=>{if((e.target as HTMLElement).closest("button,input,select,a"))return;const sx=e.clientX,sy=e.clientY,ox=indexPos.x,oy=indexPos.y;const move=(ev:PointerEvent)=>setIndexPos({x:ox+ev.clientX-sx,y:oy+ev.clientY-sy});const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up)};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up)};\n'''
+          if anchor in s and 'startIndexDrag=' not in s: s=s.replace(anchor,drag+anchor,1)
+
+          oldsec='<section className="coverageIndex" onClick={e=>e.stopPropagation()}><header><div><p>3. REPOSITORIO VISOR · catálogo operativo</p><h2>Índice de Coberturas</h2><span>Organización oficial PLADECO: Dimensión → Sector / temática → Cobertura. Cada capa de un GeoPackage se indexa individualmente.</span></div><button onClick={()=>setIndexOpen(false)}>×</button></header>'
+          newsec='<section className={`coverageIndex ${indexCompact?"compact":""}`} style={{transform:`translate(calc(-50% + ${indexPos.x}px),calc(-50% + ${indexPos.y}px))`}} onClick={e=>e.stopPropagation()}><header onPointerDown={startIndexDrag}><div><p>3. REPOSITORIO VISOR · catálogo operativo</p><h2>Índice de Coberturas</h2><span>Organización oficial PLADECO: Dimensión → Sector / temática → Cobertura. Cada capa de un GeoPackage se indexa individualmente.</span></div><div className="indexWindowActions"><button title={indexCompact?"Desplegar":"Plegar"} onClick={()=>setIndexCompact(v=>!v)}>{indexCompact?"□":"−"}</button><button title="Cerrar" onClick={()=>setIndexOpen(false)}>×</button></div></header>'
+          if oldsec in s: s=s.replace(oldsec,newsec,1)
+
+          # Descargas: mostrar GeoJSON + GPKG para coberturas _VF.
+          helper='''\nfunction gpkgDownload(i:IndexItem){const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}\n'''
+          if 'function gpkgDownload' not in s:
+              s=s.replace('function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}', 'function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}'+helper,1)
+
+          oldactions='{i.download?<a href={`${BASE_PATH}${i.download}`} download>Descargar datos</a>:<span className="catalogOnly">Catálogo</span>}'
+          newactions='{i.download?<a href={`${BASE_PATH}${i.download}`} download>GeoJSON</a>:null}{gpkgDownload(i)&&<a href={`${BASE_PATH}${gpkgDownload(i)}`} download>GeoPackage</a>}{!i.download&&!gpkgDownload(i)&&<span className="catalogOnly">Catálogo</span>}'
+          if oldactions in s: s=s.replace(oldactions,newactions,1)
+
+          # Icono de aplicar solo en acciones explícitas. Los toggles/selectores son inmediatos y no lo necesitan.
+          s=s.replace('<button onClick={askSanti}>Consultar</button>', '<button className="applyAction" onClick={askSanti}>Consultar</button>')
+          s=s.replace('<button onClick={()=>openFromIndex(i)}>Seleccionar</button>', '<button className="applyAction" onClick={()=>openFromIndex(i)}>Seleccionar</button>')
+
+          p.write_text(s,encoding='utf-8')
+
+          # CSS: Carta horizontal, legibilidad y panel movible/compacto.
+          c=Path('app/globals.css')
+          css=c.read_text(encoding='utf-8')
+          css=css.replace('@page{size:A4 landscape;margin:8mm}', '@page{size:Letter landscape;margin:6mm}')
+          css=css.replace('width:281mm!important;height:190mm!important;', 'width:267mm!important;height:203mm!important;')
+          extra='''\n/* Revision integral 2026-09-01 */\n.analysisTools{font-size:11px}.analysisTools>b,.selectionBlock>b,.visualBlock>b{font-size:11px!important}.activeCoverage label,.selectionBlock label,.visualBlock label,.isoControls label{font-size:10.5px!important}.analysisTools small,.selectionBlock small,.visualBlock small,.activeCoverage small{font-size:9.5px!important;line-height:1.45}.analysisTools select,.analysisTools button{font-size:10.5px!important}.analysisResult strong{font-size:11px!important}.inspector{font-size:11px}.inspector>.kicker,.featureDetails .kicker{font-size:9px!important}.inspector .title p,.inspector>p,.santiDescription{font-size:10px!important;line-height:1.5}.summary div{font-size:10.5px!important}.summary b{font-size:24px!important}.featureDetails p{font-size:10px!important}.featureDetails strong{font-size:9px!important}.featureDetails span{font-size:10px!important}.santiResponse,.santiAsk textarea,.santiAsk button{font-size:10.5px!important}.applyAction:before{content:"✓ ";font-weight:800}.coverageIndex{position:fixed!important;left:50%!important;top:50%!important;width:min(1180px,88vw)!important;max-height:78vh!important;resize:both;overflow:hidden!important;box-shadow:0 18px 60px #0007!important}.coverageIndex>header{cursor:move;user-select:none}.coverageIndex .indexTableWrap{max-height:calc(78vh - 165px);overflow:auto}.coverageIndex.compact{width:min(560px,82vw)!important;height:auto!important;max-height:none!important;resize:none}.coverageIndex.compact .indexFilters,.coverageIndex.compact .indexTableWrap,.coverageIndex.compact>footer{display:none!important}.indexWindowActions{display:flex;gap:6px}.indexWindowActions button{cursor:pointer}.indexActions{display:flex!important;flex-wrap:wrap;gap:5px}.indexActions a,.indexActions button{white-space:nowrap}.indexBackdrop{pointer-events:none}.coverageIndex{pointer-events:auto}\n@media print{.coverageIndex,.indexBackdrop{display:none!important}.map{page-break-inside:avoid!important;break-inside:avoid!important}}\n'''
+          if 'Revision integral 2026-09-01' not in css: css += extra
+          c.write_text(css,encoding='utf-8')
+
+          # Índice: retirar las tres referencias históricas bd-* del catálogo operativo.
+          idx=Path('public/catalog/index_coberturas.json')
+          j=json.loads(idx.read_text(encoding='utf-8'))
+          items=[x for x in j.get('items',[]) if not str(x.get('id','')).startswith('bd-')]
+          j['items']=items
+          j['total']=len(items)
+          j['generatedFrom']='00_BASE_TERRITORIAL_VF + 02_DIM_AMBIENTAL_VF + 03_DIM_SOCIOCULTURAL_VF + 04_DIM_ECONOMICA_VF + coberturas operativas complementarias'
+          idx.write_text(json.dumps(j,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          PY
+
+      - name: Pruebas estaticas obligatorias
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          s=Path('app/page.tsx').read_text()
+          css=Path('app/globals.css').read_text()
+          j=json.loads(Path('public/catalog/index_coberturas.json').read_text())
+          assert 'Soy SANTI.' not in s
+          assert '<b>SANTI</b>' not in s
+          assert 'Oficina de Planificación Estratégica' in s
+          assert '@page{size:Letter landscape;margin:6mm}' in css
+          assert 'width:267mm!important;height:203mm!important;' in css
+          assert 'function gpkgDownload' in s
+          assert 'GeoPackage</a>' in s and 'GeoJSON</a>' in s
+          assert 'startIndexDrag=' in s and 'indexCompact' in s
+          assert not any(str(x.get('id','')).startswith('bd-') for x in j['items'])
+          assert j['total']==len(j['items'])
+          print('OK pruebas estaticas; indice=',j['total'])
+          PY
+
+      - name: Build produccion
+        run: |
+          npm ci
+          npx next build --webpack
+
+      - name: Guardar revision
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css public/catalog/index_coberturas.json
+          git commit -m 'Visor: revision integral de interfaz indice y Carta' || exit 0
+          git push
