@@ -1,0 +1,2 @@
+Forzar publicación del visor con Desagregar por campo y layout cartográfico de impresión.
+Commit funcional incluido: dcf93c55e5494d5cdb1d0d94cb3441d168b2667b
