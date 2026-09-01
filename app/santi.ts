@@ -11,6 +11,7 @@ export type SantiContext={
  manzanaPopulationSum:number;polygonResults:PolygonResult[]|null;barrioNames:string[];territorioNames:string[];
  breakdowns?:{grifosTerritorio?:Record<string,number>;bibliotecasTerritorio?:Record<string,number>;grifosBarrio?:Record<string,number>;bibliotecasBarrio?:Record<string,number>};
  catalogCount?:number;
+ namedScope?:{level:string;name:string;counts:Record<string,number>;nper:number}|null;layerNames?:Record<string,string>;
 };
 const norm=(s:string)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s_]/g," ").replace(/\s+/g," ").trim();
 type PolygonGeometry={type:"Polygon"|"MultiPolygon";coordinates:any};
@@ -33,6 +34,9 @@ export function runSanti(query:string,ctx:SantiContext){
  const q=norm(query),actions:SantiAction[]=[];const isCount=/cuant|numero|cantidad|total/.test(q);
  const asksPolygon=/poligono|seleccion|seleccionad|dentro|area dibujada/.test(q);
  const polygonCount=(id:string)=>ctx.polygonResults?.find(r=>r.id===id)?.count??0;
+ const scope=ctx.namedScope;const layerId=Object.entries(ctx.layerNames??{}).find(([id,name])=>q.includes(norm(name))||q.includes(norm(id)))?.[0]??(/grifos?/.test(q)?"grifos":/bibliotecas?/.test(q)?"bibliotecas":null);
+ if(scope&&layerId&&isCount){const n=scope.counts[layerId]??0,name=ctx.layerNames?.[layerId]??layerId;return{summary:`${name} en ${scope.level} ${scope.name}: ${n.toLocaleString("es-CL")} registros. Cálculo realizado con el límite espacial real de ${scope.level}.`,actions};}
+ if(scope&&/poblacion|n_per|personas/.test(q))return{summary:`Población n_per en ${scope.level} ${scope.name}: ${scope.nper.toLocaleString("es-CL")} personas.`,actions};
  if(/grifos?/.test(q)&&asksPolygon&&isCount){if(!ctx.polygonResults){actions.push({type:"set_viz",mode:"draw"});return{summary:"Primero dibuja o conserva un polígono de selección. Luego contaré únicamente los grifos que intersectan esa selección.",actions};}const n=polygonCount("grifos");return{summary:`En el polígono seleccionado hay ${n.toLocaleString("es-CL")} grifos. El total de la cobertura completa es ${ctx.counts.grifos.toLocaleString("es-CL")}.`,actions};}
  if(/bibliotecas?/.test(q)&&asksPolygon&&isCount){if(!ctx.polygonResults){actions.push({type:"set_viz",mode:"draw"});return{summary:"Primero dibuja o conserva un polígono de selección. Luego contaré únicamente las bibliotecas que intersectan esa selección.",actions};}const n=polygonCount("bibliotecas");return{summary:`En el polígono seleccionado hay ${n.toLocaleString("es-CL")} bibliotecas. El total de la cobertura completa es ${ctx.counts.bibliotecas.toLocaleString("es-CL")}.`,actions};}
  if(/dimensiones? pladeco|cuales.*dimensiones|lista.*dimensiones/.test(q))return{summary:"Las dimensiones PLADECO del visor son Ambiental, Urbana, Sociocultural, Económica e Institucional. Base Territorial es transversal.",actions};
