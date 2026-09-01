@@ -1,4 +1,4 @@
-name: Aplicar selector cobertura activa
+name: Aplicar buffer desde punto
 on:
   push:
     paths:
@@ -14,19 +14,35 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+
           p=Path('app/page.tsx')
           s=p.read_text(encoding='utf-8')
-          old='<div className="analysisTools operationalBox"><b>Herramientas del mapa</b><div className="activeCoverage"><span>Cobertura activa</span><strong>{selectedLayer.name}</strong><small>{selectedLayer.geometry==="Punto"?"Disponible para Puntos / Clúster / Calor":"Para Puntos / Clúster / Calor seleccione una cobertura de puntos desde el Índice o SANTI"}</small></div><div className="toolButtons">'
-          new='''<div className="analysisTools operationalBox"><b>Herramientas del mapa</b><div className="activeCoverage"><label>Cobertura activa para consulta y análisis<select value={selected} onChange={e=>{const id=e.target.value;ensureActive(id);setSelected(id);setFeature(null);setSpatialSelection(polygon?featuresInPolygon(data[id],polygon):null)}}>{layers.filter(l=>!l.mapTool).map(l=><option key={l.id} value={l.id}>{l.name} · {l.geometry}</option>)}</select></label><small>{selectedLayer.geometry==="Punto"?"Esta cobertura es la referencia para Puntos / Clúster / Calor y para los análisis disponibles.":"Esta cobertura es la referencia principal para consultas y análisis. Puntos / Clúster / Calor requieren una cobertura de puntos."}</small></div><div className="toolButtons">'''
-          if old not in s: raise SystemExit('active coverage block not found')
+
+          old=''' const nearestDistance=useMemo(()=>{if(!feature||feature.layerId!==selected||feature.f.geometry.type!=="Point")return null;const o=feature.f.geometry.coordinates as number[],ds=selectedData.features.filter(f=>f!==feature.f&&f.geometry.type==="Point").map(f=>distanceMeters(o,f.geometry.coordinates as number[]));return ds.length?Math.min(...ds):null},[feature,selected,selectedData]);\n const analysisResult=analysis==="Suma n_per"?`${nperSum.toLocaleString("es-CL")} personas`:analysis==="Promedio n_per"?`${(nperValues.length?nperSum/nperValues.length:0).toLocaleString("es-CL",{maximumFractionDigits:1})} promedio`:analysis==="Densidad"?`${(pointCount/23.18).toFixed(1)} puntos/km²`:analysis==="Proximidad"?(nearestDistance!=null?`${Math.round(nearestDistance).toLocaleString("es-CL")} m al punto más cercano`:`Seleccione un punto · buffer ${radius} m`):analysis==="Isócronas"?`${isoMode} · ${isoMinutes} min${streets.features.length?" · red cargada":" · cargando red…"}`:`${sourceFeatures.length.toLocaleString("es-CL")} registros`;'''
+          new=''' const nearestDistance=useMemo(()=>{if(!feature||feature.layerId!==selected||feature.f.geometry.type!=="Point")return null;const o=feature.f.geometry.coordinates as number[],ds=selectedData.features.filter(f=>f!==feature.f&&f.geometry.type==="Point").map(f=>distanceMeters(o,f.geometry.coordinates as number[]));return ds.length?Math.min(...ds):null},[feature,selected,selectedData]);\n const bufferCount=useMemo(()=>{if(analysis!=="Buffer desde punto"||!feature||feature.layerId!==selected||feature.f.geometry.type!=="Point")return null;const o=feature.f.geometry.coordinates as number[];return selectedData.features.filter(f=>f.geometry.type==="Point"&&distanceMeters(o,f.geometry.coordinates as number[])<=radius).length},[analysis,feature,selected,selectedData,radius]);\n const analysisResult=analysis==="Suma n_per"?`${nperSum.toLocaleString("es-CL")} personas`:analysis==="Promedio n_per"?`${(nperValues.length?nperSum/nperValues.length:0).toLocaleString("es-CL",{maximumFractionDigits:1})} promedio`:analysis==="Densidad"?`${(pointCount/23.18).toFixed(1)} puntos/km²`:analysis==="Buffer desde punto"?(bufferCount!=null?`${bufferCount.toLocaleString("es-CL")} registros dentro de ${radius.toLocaleString("es-CL")} m · incluye el punto seleccionado`:`Seleccione un punto de ${selectedLayer.name} en el mapa`):analysis==="Proximidad"?(nearestDistance!=null?`${Math.round(nearestDistance).toLocaleString("es-CL")} m al punto más cercano`:`Seleccione un punto en el mapa`):analysis==="Isócronas"?`${isoMode} · ${isoMinutes} min${streets.features.length?" · red cargada":" · cargando red…"}`:`${sourceFeatures.length.toLocaleString("es-CL")} registros`;'''
+          if old not in s: raise SystemExit('analysis block not found')
           s=s.replace(old,new)
-          s=s.replace('<p className="kicker">CAPA SELECCIONADA</p>','<p className="kicker">CAPA ACTIVA PARA CONSULTA Y ANÁLISIS</p>')
+
+          old2='''<option>Cantidad de registros</option><option>Densidad</option><option>Proximidad</option><option>Isócronas</option><option>Suma n_per</option><option>Promedio n_per</option></select></label>{analysis==="Proximidad"&&<label>Distancia máxima<select value={radius} onChange={e=>setRadius(Number(e.target.value))}><option value={100}>100 m</option><option value={250}>250 m</option><option value={500}>500 m</option><option value={1000}>1.000 m</option></select></label>}'''
+          new2='''<option>Cantidad de registros</option><option>Densidad</option><option>Buffer desde punto</option><option>Proximidad</option><option>Isócronas</option><option>Suma n_per</option><option>Promedio n_per</option></select></label>{analysis==="Buffer desde punto"&&<><label>Radio del buffer<select value={radius} onChange={e=>setRadius(Number(e.target.value))}><option value={100}>100 m</option><option value={200}>200 m</option><option value={300}>300 m</option><option value={500}>500 m</option><option value={1000}>1.000 m</option></select></label><small className="bufferHelp">1. Seleccione una cobertura de puntos · 2. Elija el radio · 3. Haga clic en un punto del mapa.</small></>}'''
+          if old2 not in s: raise SystemExit('analysis selector block not found')
+          s=s.replace(old2,new2)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text(encoding='utf-8')
+          old3='{analysis==="Proximidad"&&anchor&&(()=>{const[x,y]=project(anchor.geometry.coordinates,zoom,cw.x,cw.y);return <circle cx={x} cy={y} r={radiusPx} fill="#0b4a8b" fillOpacity=".08" stroke="#0b4a8b" strokeWidth="1.5" strokeDasharray="5 4"/>})()}'
+          new3='{analysis==="Buffer desde punto"&&anchor&&(()=>{const[x,y]=project(anchor.geometry.coordinates,zoom,cw.x,cw.y);return <circle cx={x} cy={y} r={radiusPx} fill="#0b4a8b" fillOpacity=".08" stroke="#0b4a8b" strokeWidth="1.5" strokeDasharray="5 4"/>})()}'
+          if old3 not in s: raise SystemExit('buffer circle block not found')
+          s=s.replace(old3,new3)
           p.write_text(s,encoding='utf-8')
 
           p=Path('app/map-gray.css')
           s=p.read_text(encoding='utf-8')
-          s += '''\n.activeCoverage label{display:block;font-size:10px!important;font-weight:800;color:var(--stgo);text-transform:uppercase;letter-spacing:.05em}.activeCoverage select{display:block;width:100%;margin-top:5px;padding:8px;border:1px solid #9fb2c8;background:#fff;color:#17395f;font-size:11px!important;font-weight:700}.activeCoverage small{display:block;margin-top:6px;font-size:9px;line-height:1.35;color:#52606d}\n'''
+          if '.bufferHelp{' not in s:
+            s += '\n.bufferHelp{display:block;margin:5px 0 7px;padding:6px 7px;background:#eef4fb;border-left:3px solid #072e6d;color:#52606d;font-size:9px;line-height:1.35}\n'
           p.write_text(s,encoding='utf-8')
+
       - name: Validar
         run: |
           npm ci
@@ -35,6 +51,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/page.tsx app/map-gray.css
-          git commit -m 'Visor: selector de cobertura activa en herramientas' || exit 0
+          git add app/page.tsx app/InteractiveMap.tsx app/map-gray.css
+          git commit -m 'Visor: buffer seleccionable desde punto' || exit 0
           git push
