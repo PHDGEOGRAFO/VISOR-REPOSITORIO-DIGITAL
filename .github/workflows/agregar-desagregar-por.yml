@@ -1,0 +1,100 @@
+name: Agregar desagregar por
+on:
+  push:
+    paths:
+      - '.github/workflows/agregar-desagregar-por.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Incorporar desagregacion en pagina
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          anchor=' const[analysis,setAnalysis]=useState("Cantidad de registros");\n'
+          add=' const[analysis,setAnalysis]=useState("Cantidad de registros");\n const[disaggregateField,setDisaggregateField]=useState("");\n'
+          if anchor in s and 'disaggregateField' not in s:
+              s=s.replace(anchor,add,1)
+
+          anchor=' const selectedLayer=layers.find(l=>l.id===selected)??layers[0],selectedData=data[selected]??empty;\n'
+          add=' const selectedLayer=layers.find(l=>l.id===selected)??layers[0],selectedData=data[selected]??empty;\n const disaggregateFields=useMemo(()=>{const f=selectedData.features[0];if(!f)return[];return Object.keys(f.properties||{}).filter(k=>{const vals=selectedData.features.slice(0,500).map(x=>x.properties?.[k]).filter(v=>v!=null&&String(v).trim()!=="");const uniq=new Set(vals.map(v=>String(v)));return vals.length>0&&uniq.size>1&&uniq.size<=50}).sort()},[selectedData]);\n const categoryStats=useMemo(()=>{if(!disaggregateField)return[] as [string,number][];const src=sourceFeatures.length?sourceFeatures:selectedData.features;const out:Record<string,number>={};for(const f of src){const raw=f.properties?.[disaggregateField];const k=raw==null||String(raw).trim()===""?"Sin dato":String(raw);out[k]=(out[k]||0)+1}return Object.entries(out).sort((a,b)=>b[1]-a[1])},[disaggregateField,sourceFeatures,selectedData]);\n'
+          if anchor in s and 'const disaggregateFields=' not in s:
+              s=s.replace(anchor,add,1)
+
+          old='viz={selectionMode==="Polígono"?"draw":viz} onPolygon={handlePolygon}'
+          new='viz={selectionMode==="Polígono"?"draw":viz} categoryField={disaggregateField||undefined} onPolygon={handlePolygon}'
+          if old in s:
+              s=s.replace(old,new,1)
+
+          old='setSelected(id);setFeature(null);setMultiSelected([]);setSelectionMode("Puntos");setViz("simple");'
+          new='setSelected(id);setFeature(null);setMultiSelected([]);setDisaggregateField("");setSelectionMode("Puntos");setViz("simple");'
+          if old in s:
+              s=s.replace(old,new,1)
+
+          marker='<div className="analysisInline"><label>Tipo de análisis<select value={analysis}'
+          if marker in s and 'Desagregar por' not in s:
+              insert='<div className="disaggregateControl"><label>Desagregar por<select value={disaggregateField} onChange={e=>setDisaggregateField(e.target.value)}><option value="">Sin desagregar</option>{disaggregateFields.map(f=><option key={f} value={f}>{f}</option>)}</select></label><small>Lee los campos de la cobertura activa. Al elegir uno, el mapa diferencia sus categorías y el plano incorpora la leyenda.</small>{disaggregateField&&<div className="categorySummary"><b>Campo: {disaggregateField}</b>{categoryStats.slice(0,12).map(([v,n])=><span key={v}><i style={{background:`hsl(${(Math.abs([...v].reduce((a,c)=>a+c.charCodeAt(0),0))*47)%360} 58% 45%)`}}/>{v}: {n.toLocaleString("es-CL")}</span>)}{categoryStats.length>12&&<em>+ {categoryStats.length-12} categorías adicionales</em>}</div>}</div>'
+              s=s.replace(marker,insert+marker,1)
+
+          old='<div className="printLegend"><b>Simbología</b>{activePrintLayers.map(l=><div key={l.id}><i style={{background:l.geometry==="Línea"?"transparent":l.color,borderColor:l.color}} className={`legend-${l.geometry.toLowerCase()}`}/><span>{l.name}</span></div>)}</div>'
+          new='<div className="printLegend"><b>Simbología</b>{activePrintLayers.map(l=><div key={l.id}><i style={{background:l.geometry==="Línea"?"transparent":l.color,borderColor:l.color}} className={`legend-${l.geometry.toLowerCase()}`}/><span>{l.name}</span></div>)}{disaggregateField&&<><strong>Desagregación · {disaggregateField}</strong>{categoryStats.slice(0,12).map(([v,n])=><div key={`print-${v}`}><i style={{background:`hsl(${(Math.abs([...v].reduce((a,c)=>a+c.charCodeAt(0),0))*47)%360} 58% 45%)`}}/><span>{v} ({n.toLocaleString("es-CL")})</span></div>)}</>}</div>'
+          if old in s:
+              s=s.replace(old,new,1)
+
+          p.write_text(s)
+          PY
+      - name: Incorporar simbologia categorizada al mapa
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text()
+          old='radius=500}:{data:Record<string,GeoCollection>;active:string[];styles:Record<string,LayerStyle>;onFeature:(f:GeoFeature,layerId:string)=>void;viz?:VizMode;selectedLayerId?:string;onPolygon?:(p:DrawPolygon|null)=>void;streets?:GeoCollection;analysis?:string;selectedFeature?:GeoFeature|null;selectedFeatures?:GeoFeature[];isoMode?:string;isoMinutes?:number;radius?:number}){'
+          new='radius=500,categoryField}:{data:Record<string,GeoCollection>;active:string[];styles:Record<string,LayerStyle>;onFeature:(f:GeoFeature,layerId:string)=>void;viz?:VizMode;selectedLayerId?:string;onPolygon?:(p:DrawPolygon|null)=>void;streets?:GeoCollection;analysis?:string;selectedFeature?:GeoFeature|null;selectedFeatures?:GeoFeature[];isoMode?:string;isoMinutes?:number;radius?:number;categoryField?:string}){'
+          if old in s:
+              s=s.replace(old,new,1)
+          anchor=' const radiusPx=useMemo(()=>radius/(Math.cos(center.lat*Math.PI/180)*2*Math.PI*6378137/(TILE*2**zoom)),[radius,center.lat,zoom]);\n'
+          add=anchor+' const categoryColor=(f:GeoFeature,base:string)=>{if(!categoryField)return base;const v=String(f.properties?.[categoryField]??"Sin dato");let h=0;for(const c of v)h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 58% 45%)`};\n'
+          if anchor in s and 'const categoryColor=' not in s:
+              s=s.replace(anchor,add,1)
+          s=s.replace('fill={s.color} fillOpacity={s.opacity??.9}', 'fill={id===selectedLayerId?categoryColor(f,s.color):s.color} fillOpacity={s.opacity??.9}')
+          s=s.replace('fill={s.fill??s.color} fillOpacity={s.opacity??.08} stroke={s.color}', 'fill={id===selectedLayerId&&categoryField?categoryColor(f,s.color):(s.fill??s.color)} fillOpacity={s.opacity??.08} stroke={id===selectedLayerId&&categoryField?categoryColor(f,s.color):s.color}')
+          s=s.replace('stroke={s.color} strokeWidth={s.width??1.5}', 'stroke={id===selectedLayerId&&categoryField?categoryColor(f,s.color):s.color} strokeWidth={s.width??1.5}')
+          p.write_text(s)
+          PY
+      - name: Ajustar estilos
+        run: |
+          cat >> app/globals.css <<'EOF'
+          .disaggregateControl{display:grid;gap:5px;margin-top:8px;padding:8px;border:1px solid var(--line);background:#fff}.disaggregateControl label{display:grid;gap:4px;font-size:8px;font-weight:700;color:var(--deep)}.disaggregateControl select{border:1px solid var(--line);padding:6px;background:white}.disaggregateControl small{font-size:7px;line-height:1.4;color:var(--muted)}.categorySummary{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:3px}.categorySummary>b{grid-column:1/-1;font-size:8px;color:var(--deep)}.categorySummary span{display:flex;align-items:center;gap:4px;font-size:7px;color:var(--muted)}.categorySummary i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}.categorySummary em{grid-column:1/-1;font-size:7px;color:var(--muted)}.printLegend strong{display:block;margin-top:5px;font-size:7px;color:#173f38}
+          EOF
+      - name: Comprobar estructura
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx').read_text(); m=Path('app/InteractiveMap.tsx').read_text()
+          assert 'Desagregar por' in p
+          assert 'categoryField={disaggregateField||undefined}' in p
+          assert 'Desagregación · {disaggregateField}' in p
+          assert 'categoryField?:string' in m
+          assert 'categoryColor' in m
+          print('Desagregar por: estructura OK')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/InteractiveMap.tsx app/globals.css
+          git commit -m 'Visor: agregar desagregacion por campo y leyenda' || exit 0
+          git push
