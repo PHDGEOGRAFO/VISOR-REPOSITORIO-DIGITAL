@@ -1,0 +1,40 @@
+name: Aplicar selector cobertura activa
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-active-layer-selector.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar cambios
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='<div className="analysisTools operationalBox"><b>Herramientas del mapa</b><div className="activeCoverage"><span>Cobertura activa</span><strong>{selectedLayer.name}</strong><small>{selectedLayer.geometry==="Punto"?"Disponible para Puntos / Clúster / Calor":"Para Puntos / Clúster / Calor seleccione una cobertura de puntos desde el Índice o SANTI"}</small></div><div className="toolButtons">'
+          new='''<div className="analysisTools operationalBox"><b>Herramientas del mapa</b><div className="activeCoverage"><label>Cobertura activa para consulta y análisis<select value={selected} onChange={e=>{const id=e.target.value;ensureActive(id);setSelected(id);setFeature(null);setSpatialSelection(polygon?featuresInPolygon(data[id],polygon):null)}}>{layers.filter(l=>!l.mapTool).map(l=><option key={l.id} value={l.id}>{l.name} · {l.geometry}</option>)}</select></label><small>{selectedLayer.geometry==="Punto"?"Esta cobertura es la referencia para Puntos / Clúster / Calor y para los análisis disponibles.":"Esta cobertura es la referencia principal para consultas y análisis. Puntos / Clúster / Calor requieren una cobertura de puntos."}</small></div><div className="toolButtons">'''
+          if old not in s: raise SystemExit('active coverage block not found')
+          s=s.replace(old,new)
+          s=s.replace('<p className="kicker">CAPA SELECCIONADA</p>','<p className="kicker">CAPA ACTIVA PARA CONSULTA Y ANÁLISIS</p>')
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/map-gray.css')
+          s=p.read_text(encoding='utf-8')
+          s += '''\n.activeCoverage label{display:block;font-size:10px!important;font-weight:800;color:var(--stgo);text-transform:uppercase;letter-spacing:.05em}.activeCoverage select{display:block;width:100%;margin-top:5px;padding:8px;border:1px solid #9fb2c8;background:#fff;color:#17395f;font-size:11px!important;font-weight:700}.activeCoverage small{display:block;margin-top:6px;font-size:9px;line-height:1.35;color:#52606d}\n'''
+          p.write_text(s,encoding='utf-8')
+      - name: Validar
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/map-gray.css
+          git commit -m 'Visor: selector de cobertura activa en herramientas' || exit 0
+          git push
