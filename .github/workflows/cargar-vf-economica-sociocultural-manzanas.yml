@@ -1,0 +1,158 @@
+name: Cargar VF Economica Sociocultural y Manzanas
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cargar-vf-economica-sociocultural-manzanas.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cargar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar GIS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin sqlite3
+          python -m pip install --upgrade pip gdown
+      - name: Descargar GeoPackage VF oficiales
+        run: |
+          mkdir -p /tmp/gis
+          gdown 'https://drive.google.com/uc?id=1HTUXi9L4legMkzvunoBKJp3W8DIru30u' -O /tmp/gis/04_DIM_ECONOMICA_VF.gpkg
+          gdown 'https://drive.google.com/uc?id=1LDgOB3cFIpTIxPKAZyCmy3G-W9ifkEqN' -O /tmp/gis/03_DIM_SOCIOCULTURAL_VF.gpkg
+          test -s /tmp/gis/04_DIM_ECONOMICA_VF.gpkg
+          test -s /tmp/gis/03_DIM_SOCIOCULTURAL_VF.gpkg
+          file /tmp/gis/*_VF.gpkg
+          sqlite3 /tmp/gis/04_DIM_ECONOMICA_VF.gpkg "select count(*) from gpkg_contents where data_type='features';"
+          sqlite3 /tmp/gis/03_DIM_SOCIOCULTURAL_VF.gpkg "select count(*) from gpkg_contents where data_type='features';"
+      - name: Convertir subcapas a web y crear manifiestos
+        run: |
+          mkdir -p public/data/gpkg public/data/economica public/data/sociocultural
+          cp /tmp/gis/04_DIM_ECONOMICA_VF.gpkg public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+          cp /tmp/gis/03_DIM_SOCIOCULTURAL_VF.gpkg public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
+          python - <<'PY'
+          import sqlite3, subprocess, pathlib, json, re
+          configs=[
+            ('/tmp/gis/04_DIM_ECONOMICA_VF.gpkg','public/data/economica','04_DIM_ECONOMICA_VF.gpkg','ECO','DIMENSIÓN ECONOMICA','Actividad económica y comercio'),
+            ('/tmp/gis/03_DIM_SOCIOCULTURAL_VF.gpkg','public/data/sociocultural','03_DIM_SOCIOCULTURAL_VF.gpkg','SOC','DIMENSIÓN SOCIOCULTURAL','Por clasificar'),
+          ]
+          for gpkg,outdir,filename,theme,dimension,sector in configs:
+            out=pathlib.Path(outdir); out.mkdir(parents=True,exist_ok=True)
+            con=sqlite3.connect(gpkg)
+            rows=con.execute("""
+              select c.table_name, coalesce(g.geometry_type_name,''), coalesce(c.srs_id,'' )
+              from gpkg_contents c left join gpkg_geometry_columns g on c.table_name=g.table_name
+              where c.data_type='features' order by c.table_name
+            """).fetchall()
+            manifest=[]
+            for table,geom,srid in rows:
+              slug=re.sub(r'[^a-z0-9]+','-',table.lower()).strip('-')
+              gj=out/f'{slug}.geojson'
+              subprocess.run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',str(gj),gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'],check=True)
+              count=con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+              manifest.append({'table':table,'slug':slug,'geometry':geom,'source_srid':srid,'records':count,'theme':theme,'dimension':dimension,'sector':sector,'geojson':f'/data/{out.name}/{slug}.geojson','gpkg':f'/data/gpkg/{filename}','container':filename})
+            (out/f'manifest_{filename[:-5].lower()}.json').write_text(json.dumps({'file':filename,'total':len(manifest),'items':manifest},ensure_ascii=False,indent=2),encoding='utf-8')
+            print(filename, len(manifest), 'capas')
+          PY
+      - name: Integrar capas y corregir n_per por poligono
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,re
+          p=Path('app/page.tsx'); s=p.read_text(encoding='utf-8')
+          manifests=[]
+          for mp in [Path('public/data/economica/manifest_04_dim_economica_vf.json'),Path('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json')]:
+            manifests += json.loads(mp.read_text(encoding='utf-8'))['items']
+          def gtype(g):
+            x=(g or '').upper()
+            return 'Punto' if 'POINT' in x else ('Línea' if 'LINE' in x else 'Polígono')
+          def lid(it):
+            return ('vf-'+it['slug'])
+          def friendly(table):
+            x=re.sub(r'^(ECO|SOC|SEG|TUR|CUL|PAT)_(PTO|POL|LIN)_','',table)
+            return x.replace('_',' ').title()
+          # generated layer block
+          layer_lines=[]; style_lines=[]
+          palette=['#7a5b3a','#386f8a','#7b5685','#5c7a43','#9a623f','#4b6d9a','#8a4f64','#6f7f3f','#825c45','#526f78']
+          for i,it in enumerate(manifests):
+            gt=gtype(it['geometry']); color=palette[i%len(palette)]
+            layer_lines.append(f' {{id:"{lid(it)}",name:{json.dumps(friendly(it["table"]),ensure_ascii=False)},theme:"{it["theme"]}",geometry:"{gt}",url:`${{BASE_PATH}}{it["geojson"]}`,color:"{color}",description:{json.dumps("Cobertura publicada desde "+it["container"]+".",ensure_ascii=False)},source:"{it["container"]}"}}')
+            if gt=='Punto': st=f'{{color:"{color}",pointRadius:4}}'
+            elif gt=='Línea': st=f'{{color:"{color}",width:1.25,opacity:.9}}'
+            else: st=f'{{color:"{color}",fill:"{color}",width:.9,opacity:.15}}'
+            style_lines.append(f' "{lid(it)}":{st}')
+          start='/* GENERATED_VF_LAYERS_START */'; end='/* GENERATED_VF_LAYERS_END */'
+          block=start+'\n'+',\n'.join(layer_lines)+'\n '+end
+          if start in s:
+            s=re.sub(re.escape(start)+r'.*?'+re.escape(end),block,s,flags=re.S)
+          else:
+            anchor=' {id:"bibliotecas",name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`,color:"#2877a6",description:"Variable temática sociocultural. Se activa desde Herramientas, Índice o SANTI.",source:"Biblioteca Digital"}'
+            s=s.replace(anchor,anchor+',\n '+block)
+          sstart='/* GENERATED_VF_STYLES_START */'; send='/* GENERATED_VF_STYLES_END */'
+          sblock=sstart+'\n'+',\n'.join(style_lines)+'\n '+send
+          if sstart in s:
+            s=re.sub(re.escape(sstart)+r'.*?'+re.escape(send),sblock,s,flags=re.S)
+          else:
+            anchor='bibliotecas:{color:"#2877a6",pointRadius:6}'
+            s=s.replace(anchor,anchor+',\n '+sblock)
+          # lazy loading for thematic layers
+          old='  layers.forEach(layer=>{\n   if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;'
+          new='  layers.forEach(layer=>{\n   const shouldLoad=layer.theme==="BASE"||layer.activeDefault||active.includes(layer.id)||layer.id===selected;\n   if(!shouldLoad)return;\n   if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;'
+          if old in s:s=s.replace(old,new,1)
+          s=s.replace(' },[population]);',' },[population,active,selected]);',1)
+          # n_per must come from manzana polygons intersecting drawn polygon
+          old=' const nperValues=sourceFeatures.map(f=>Number(f.properties.n_per)).filter(Number.isFinite),nperSum=nperValues.reduce((a,b)=>a+b,0),pointCount=selectedData.features.filter(f=>f.geometry.type==="Point").length;'
+          new=' const manzanasAnalisis=polygon?featuresInPolygon(data.manzana??empty,polygon):[];\n const nperValues=manzanasAnalisis.map(f=>Number(f.properties.n_per)).filter(Number.isFinite),nperSum=nperValues.reduce((a,b)=>a+b,0),pointCount=selectedData.features.filter(f=>f.geometry.type==="Point").length;'
+          if old in s:s=s.replace(old,new,1)
+          # auto activate manzana and polygon for population analyses
+          hook=' useEffect(()=>{if(analysis!=="Isócronas"||streets.features.length)return;fetch(`${BASE_PATH}/data/calles_santiago.geojson`).then(r=>r.ok?r.json():empty).then(setStreets).catch(()=>setStreets(empty))},[analysis,streets.features.length]);'
+          add=hook+'\n useEffect(()=>{if(analysis==="Suma n_per"||analysis==="Promedio n_per"){setActive(a=>a.includes("manzana")?a:[...a,"manzana"]);setSelectionMode("Polígono")}},[analysis]);'
+          if hook in s and 'setSelectionMode("Polígono")}},[analysis]);' not in s:s=s.replace(hook,add,1)
+          # evidence in result + print state
+          s=s.replace('analysis==="Suma n_per"?`${nperSum.toLocaleString("es-CL")} personas`','analysis==="Suma n_per"?(polygon?`${nperSum.toLocaleString("es-CL")} personas · ${manzanasAnalisis.length.toLocaleString("es-CL")} manzanas Censo 2024`:`Dibuje un polígono · Base: Manzanas Censo 2024 · campo n_per`)')
+          s=s.replace('analysis==="Promedio n_per"?`${(nperValues.length?nperSum/nperValues.length:0).toLocaleString("es-CL",{maximumFractionDigits:1})} promedio`','analysis==="Promedio n_per"?(polygon?`${(nperValues.length?nperSum/nperValues.length:0).toLocaleString("es-CL",{maximumFractionDigits:1})} promedio · ${manzanasAnalisis.length.toLocaleString("es-CL")} manzanas Censo 2024`:`Dibuje un polígono · Base: Manzanas Censo 2024 · campo n_per`)')
+          s=s.replace('{disaggregateField?` · Desagregado por ${disaggregateField}`:""}</div>','{disaggregateField?` · Desagregado por ${disaggregateField}`:""}{(analysis==="Suma n_per"||analysis==="Promedio n_per")?` · Base: Manzanas Censo 2024 · campo n_per`:""}</div>')
+          p.write_text(s,encoding='utf-8')
+          # catalog actual operational entries + VF layers
+          cp=Path('public/catalog/index_coberturas.json'); cat=json.loads(cp.read_text(encoding='utf-8'))
+          base=[x for x in cat.get('items',[]) if not str(x.get('contenedor','')).endswith('_VF.gpkg')]
+          for it in manifests:
+            gt=gtype(it['geometry']); idv=lid(it)
+            base.append({'id':idv,'mapId':idv,'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':gt,'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['records'],'crs':f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)','verEnMapa':True,'download':it['geojson'],'observaciones':'Carga oficial desde versión final _VF. GeoJSON web derivado de la subcapa; GPKG permanece como respaldo por dimensión.'})
+          cat['items']=base;cat['total']=len(base);cat['generatedAt']='2026-09-01';cat['generatedFrom']='Versiones finales _VF + capas base operativas'
+          cp.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          PY
+      - name: Validar carga y build
+        run: |
+          ECO=$(python - <<'PY'
+          import json
+          print(json.load(open('public/data/economica/manifest_04_dim_economica_vf.json'))['total'])
+          PY
+          )
+          SOC=$(python - <<'PY'
+          import json
+          print(json.load(open('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json'))['total'])
+          PY
+          )
+          test "$ECO" -gt 0
+          test "$SOC" -gt 0
+          test $(find public/data/economica -maxdepth 1 -name '*.geojson' | wc -l) -eq "$ECO"
+          test $(find public/data/sociocultural -maxdepth 1 -name '*.geojson' | wc -l) -eq "$SOC"
+          grep -q 'Base: Manzanas Censo 2024' app/page.tsx
+          grep -q 'GENERATED_VF_LAYERS_START' app/page.tsx
+          npm ci
+          npx next build --webpack
+      - name: Guardar carga
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/page.tsx public/catalog/index_coberturas.json public/data/gpkg public/data/economica public/data/sociocultural
+          git commit -m 'Visor: cargar VF economica y sociocultural con n_per por manzana' || exit 0
+          git push
