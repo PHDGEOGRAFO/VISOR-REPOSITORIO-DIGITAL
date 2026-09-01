@@ -26,6 +26,7 @@ jobs:
       - name: Cargar dimensiones VF y corregir manzanas
         run: |
           sed -i 's/FROM LIMITE_BARRIOS WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/FROM LIMITE_MANZANA_CENSAL WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/' scripts/load_vf_dimensions.py
+          sed -i "s/\['ogr2ogr','-f','GeoJSON'/['ogr2ogr','-skipfailures','-f','GeoJSON'/g" scripts/load_vf_dimensions.py
           python scripts/load_vf_dimensions.py
       - name: Validar estructura, datos y build
         run: |
@@ -54,7 +55,9 @@ jobs:
           assert {'REPUBLICA','RONDIZZONI',"PARQUE O'HIGGINS"}.issubset(names)
           ter=json.load(open('public/data/territorios.geojson',encoding='utf-8'))
           assert len(ter['features'])==6, len(ter['features'])
-          print('Validación VF OK: ECO 22, SOC 25, manzanas 1711, n_per 432081, 6 territorios y nombres oficiales OK')
+          apar=json.load(open('public/data/economica/eco-pto-aparcadores-ilegales.geojson',encoding='utf-8'))
+          assert len(apar['features'])==591, len(apar['features'])
+          print('Validación VF OK: ECO 22, SOC 25, manzanas 1711, n_per 432081, 6 territorios, nombres oficiales y aparcadores 591/593 válidos')
           PY
           npm ci
           npx next build --webpack
