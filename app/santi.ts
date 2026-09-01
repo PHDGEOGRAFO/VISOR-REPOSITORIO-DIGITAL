@@ -31,6 +31,8 @@ function breakdownText(title:string,b?:Record<string,number>){if(!b||!Object.key
 
 export function runSanti(query:string,ctx:SantiContext){
  const q=norm(query),actions:SantiAction[]=[];const isCount=/cuant|numero|cantidad|total/.test(q);
+ if(/dimensiones? pladeco|cuales.*dimensiones|lista.*dimensiones/.test(q))return{summary:"Las dimensiones PLADECO del visor son Ambiental, Urbana, Sociocultural, Económica e Institucional. Base Territorial es transversal.",actions};
+ if(/sectores?|tematicas?/.test(q)&&/pladeco|dimension/.test(q))return{summary:"La navegación usa Dimensión PLADECO → Sector / temática → Cobertura. Seguridad, movilidad, turismo, patrimonio, áreas verdes y residuos son sectores subordinados.",actions};
  if(/coberturas?|capas?/.test(q)&&isCount&&ctx.catalogCount!=null)return{summary:`El Índice de Coberturas contiene ${ctx.catalogCount.toLocaleString("es-CL")} registros provenientes de 2. BIBLIOTECA DIGITAL.`,actions};
  if(/grifos?/.test(q)&&/territorios?/.test(q))return{summary:breakdownText("Grifos por territorio",ctx.breakdowns?.grifosTerritorio),actions};
  if(/bibliotecas?/.test(q)&&/territorios?/.test(q))return{summary:breakdownText("Bibliotecas por territorio",ctx.breakdowns?.bibliotecasTerritorio),actions};
