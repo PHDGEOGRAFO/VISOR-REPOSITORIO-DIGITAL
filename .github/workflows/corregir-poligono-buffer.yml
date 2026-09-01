@@ -2,7 +2,7 @@ name: Corregir poligono y buffer
 on:
   push:
     paths:
-      - '.github/workflows/corregir-poligono-buffer.yml'
+      - 'public/trigger-poligono-buffer.txt'
 permissions:
   contents: write
 jobs:
