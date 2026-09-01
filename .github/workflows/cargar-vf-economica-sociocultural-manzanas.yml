@@ -25,18 +25,42 @@ jobs:
           python -m pip install --upgrade pip gdown
       - name: Cargar dimensiones VF y corregir manzanas
         run: python scripts/load_vf_dimensions.py
-      - name: Validar estructura y build
+      - name: Validar estructura, datos y build
         run: |
+          test -f public/data/gpkg/00_BASE_TERRITORIAL_VF.gpkg
           test -f public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
           test -f public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
+          test -f public/data/comuna.geojson
+          test -f public/data/territorios.geojson
+          test -f public/data/barrios.geojson
+          test -f public/data/manzanas.geojson
+          test -f public/data/calles_santiago.geojson
+          test -f public/data/unidades_vecinales.geojson
           grep -q 'GENERATED_VF_LAYERS_START' app/page.tsx
           grep -q 'Base: Manzanas Censo 2024' app/page.tsx
+          python - <<'PY'
+          import json
+          eco=json.load(open('public/data/economica/manifest_04_dim_economica_vf.json',encoding='utf-8'))
+          soc=json.load(open('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json',encoding='utf-8'))
+          assert eco['total']==22, eco['total']
+          assert soc['total']==25, soc['total']
+          mz=json.load(open('public/data/manzanas.geojson',encoding='utf-8'))
+          assert len(mz['features'])==1711, len(mz['features'])
+          assert round(sum(float(f.get('properties',{}).get('n_per') or 0) for f in mz['features']))==432081
+          bar=json.load(open('public/data/barrios.geojson',encoding='utf-8'))
+          names={str(f.get('properties',{}).get('BARRIO','')).upper() for f in bar['features']}
+          assert {'REPUBLICA','RONDIZZONI',"PARQUE O'HIGGINS"}.issubset(names)
+          print('Validación VF OK: ECO 22, SOC 25, manzanas 1711, n_per 432081, nombres oficiales OK')
+          PY
           npm ci
           npx next build --webpack
       - name: Guardar carga
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/page.tsx public/catalog/index_coberturas.json public/data/gpkg public/data/economica public/data/sociocultural
-          git commit -m 'Visor: cargar VF economica y sociocultural con n_per por manzana' || exit 0
+          git add app/page.tsx public/catalog/index_coberturas.json \
+            public/data/gpkg public/data/economica public/data/sociocultural \
+            public/data/comuna.geojson public/data/territorios.geojson public/data/barrios.geojson \
+            public/data/manzanas.geojson public/data/calles_santiago.geojson public/data/unidades_vecinales.geojson
+          git commit -m 'Visor: cargar base territorial y dimensiones VF' || exit 0
           git push
