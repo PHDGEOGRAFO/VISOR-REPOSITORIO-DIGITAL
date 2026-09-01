@@ -1,4 +1,4 @@
-name: Cargar VF Economica Sociocultural y Manzanas
+name: Cargar VF Ambiental Economica Sociocultural y Manzanas
 
 on:
   push:
@@ -23,9 +23,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gdal-bin sqlite3
           python -m pip install --upgrade pip gdown
-      - name: Cargar dimensiones VF y corregir manzanas
+      - name: Cargar dimensiones VF
         run: |
-          sed -i 's/FROM LIMITE_BARRIOS WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/FROM LIMITE_MANZANA_CENSAL WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/' scripts/load_vf_dimensions.py
           sed -i "s/\['ogr2ogr','-f','GeoJSON'/['ogr2ogr','-skipfailures','-f','GeoJSON'/g" scripts/load_vf_dimensions.py
           python scripts/load_vf_dimensions.py
       - name: Limpiar geometrías web inválidas y registrar control
@@ -43,7 +42,11 @@ jobs:
                   return math.isfinite(x) and math.isfinite(y) and -180<=x<=180 and -90<=y<=90
               return all(coords_ok(v) for v in c)
 
-          manifests=[Path('public/data/economica/manifest_04_dim_economica_vf.json'),Path('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json')]
+          manifests=[
+              Path('public/data/ambiental/manifest_02_dim_ambiental_vf.json'),
+              Path('public/data/economica/manifest_04_dim_economica_vf.json'),
+              Path('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json')
+          ]
           controls=[]
           for mp in manifests:
               m=json.loads(mp.read_text(encoding='utf-8'))
@@ -87,8 +90,9 @@ jobs:
       - name: Validar estructura, datos, geometrías y build
         run: |
           test -f public/data/gpkg/00_BASE_TERRITORIAL_VF.gpkg
-          test -f public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+          test -f public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg
           test -f public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
+          test -f public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
           test -f public/data/comuna.geojson
           test -f public/data/territorios.geojson
           test -f public/data/barrios.geojson
@@ -100,10 +104,13 @@ jobs:
           python - <<'PY'
           import json, math
           from pathlib import Path
+          amb=json.load(open('public/data/ambiental/manifest_02_dim_ambiental_vf.json',encoding='utf-8'))
           eco=json.load(open('public/data/economica/manifest_04_dim_economica_vf.json',encoding='utf-8'))
           soc=json.load(open('public/data/sociocultural/manifest_03_dim_sociocultural_vf.json',encoding='utf-8'))
+          assert amb['total']>0, amb['total']
           assert eco['total']==22, eco['total']
           assert soc['total']==25, soc['total']
+          assert len(list(Path('public/data/ambiental').glob('*.geojson')))==amb['total']
           assert len(list(Path('public/data/economica').glob('*.geojson')))==22
           assert len(list(Path('public/data/sociocultural').glob('*.geojson')))==25
           mz=json.load(open('public/data/manzanas.geojson',encoding='utf-8'))
@@ -125,14 +132,14 @@ jobs:
                   x,y=float(c[0]),float(c[1])
                   return math.isfinite(x) and math.isfinite(y) and -180<=x<=180 and -90<=y<=90
               return all(coords_ok(v) for v in c)
-          for d in ['public/data/economica','public/data/sociocultural']:
+          for d in ['public/data/ambiental','public/data/economica','public/data/sociocultural']:
               for fp in Path(d).glob('*.geojson'):
                   fc=json.loads(fp.read_text(encoding='utf-8'))
                   assert all(f.get('geometry') and coords_ok(f['geometry'].get('coordinates')) for f in fc['features']), fp
-          allitems=eco['items']+soc['items']
+          allitems=amb['items']+eco['items']+soc['items']
           assert all('registros_web' in x and 'omitidos_invalidos' in x for x in allitems)
           assert sum(x['registros_web'] for x in allitems)>0
-          print('VALIDACIÓN VF OK: base territorial final + 22 ECO + 25 SOC + geometrías web válidas')
+          print(f"VALIDACIÓN VF OK: base territorial + {amb['total']} AMB + 22 ECO + 25 SOC + geometrías web válidas")
           print('Omitidas por geometría inválida:',sum(x['omitidos_invalidos'] for x in allitems))
           PY
           npm ci
@@ -142,8 +149,8 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app/page.tsx public/catalog/index_coberturas.json \
-            public/data/gpkg public/data/economica public/data/sociocultural \
+            public/data/gpkg public/data/ambiental public/data/economica public/data/sociocultural \
             public/data/comuna.geojson public/data/territorios.geojson public/data/barrios.geojson \
             public/data/manzanas.geojson public/data/calles_santiago.geojson public/data/unidades_vecinales.geojson
-          git commit -m 'Visor: cargar base territorial y dimensiones VF validadas' || exit 0
+          git commit -m 'Visor: cargar dimensión Ambiental VF validada' || exit 0
           git push
