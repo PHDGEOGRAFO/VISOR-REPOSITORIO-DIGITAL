@@ -1,0 +1,79 @@
+name: Aplicar SANTI multiescala y selección múltiple
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-santi-scales-multiselect-search.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar cambios
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          s=s.replace('function featureLabel(f:GeoFeature,keys:string[]){return String(keys.map(k=>f.properties?.[k]).find(v=>v!=null&&String(v).trim())??"Sin nombre")}\nfunction breakdown(points:GeoCollection|undefined,polys:GeoCollection|undefined,keys:string[]){const out:Record<string,number>={};if(!points||!polys)return out;for(const p of polys.features){if(p.geometry.type!=="Polygon"&&p.geometry.type!=="MultiPolygon")continue;const name=featureLabel(p,keys);out[name]=points.features.filter(x=>intersectsPolygon(x.geometry,p.geometry as any)).length}return out}', '''function featureLabel(f:GeoFeature,keys:string[]){return String(keys.map(k=>f.properties?.[k]).find(v=>v!=null&&String(v).trim())??"Sin nombre")}
+function breakdown(points:GeoCollection|undefined,polys:GeoCollection|undefined,keys:string[]){const out:Record<string,number>={};if(!points||!polys)return out;for(const p of polys.features){if(p.geometry.type!=="Polygon"&&p.geometry.type!=="MultiPolygon")continue;const name=featureLabel(p,keys);out[name]=(out[name]??0)+points.features.filter(x=>intersectsPolygon(x.geometry,p.geometry as any)).length}return out}
+function normText(v:string){return v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\\s+/g," ").trim()}
+function resolveNamedScope(query:string,data:Record<string,GeoCollection>){const q=normText(query);const defs=[{id:"territorio",level:"territorio",keys:["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]},{id:"barrio",level:"barrio",keys:["BARRIO","NOM_BARRIO","NOMBRE"]},{id:"manzana",level:"manzana",keys:["COD_MZN","cod_mzn"]}] as const;for(const d of defs){for(const f of data[d.id]?.features??[]){if(f.geometry.type!=="Polygon"&&f.geometry.type!=="MultiPolygon")continue;const name=featureLabel(f,[...d.keys]);if(name!=="Sin nombre"&&q.includes(normText(name))){const counts:Record<string,number>={};for(const l of layers)counts[l.id]=(data[l.id]?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).length;const nper=(data.manzana?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).reduce((sum,x)=>sum+(Number(x.properties.n_per)||0),0);return{level:d.level,name,counts,nper}}}}return null}''')
+
+          s=s.replace('const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");', 'const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");const[sidebarQuery,setSidebarQuery]=useState("");')
+
+          s=s.replace('grifosTerritorio:breakdown(data.grifos,data.territorio,["NOM_TERR","TERRITORIO","NOMBRE"]),bibliotecasTerritorio:breakdown(data.bibliotecas,data.territorio,["NOM_TERR","TERRITORIO","NOMBRE"]),', 'grifosTerritorio:breakdown(data.grifos,data.territorio,["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]),bibliotecasTerritorio:breakdown(data.bibliotecas,data.territorio,["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]),')
+
+          s=s.replace('const dimensionCounts=useMemo(()=>Object.fromEntries(pladecoDimensions.map(d=>[d.id,indexItems.filter(i=>itemDimension(i)===`DIMENSIÓN ${d.id}`).length])),[indexItems]);', 'const dimensionCounts=useMemo(()=>Object.fromEntries(pladecoDimensions.map(d=>[d.id,indexItems.filter(i=>itemDimension(i)===`DIMENSIÓN ${d.id}`).length])),[indexItems]);\n const sidebarMatches=useMemo(()=>{const q=normText(sidebarQuery);if(!q)return[];return indexItems.filter(i=>i.verEnMapa&&i.mapId&&normText(`${i.nombre} ${itemDimension(i)} ${itemSector(i)} ${i.tema??""} ${i.tematica??""}`).includes(q)).slice(0,10)},[indexItems,sidebarQuery]);')
+
+          s=s.replace('const askSanti=()=>{const r=runSanti(santiQuery,{active,selectedId:selected,selectedCount:selectedData.features.length,counts,manzanaPopulationSum,polygonResults,barrioNames:uniqueNames(data.barrio,["NOM_BARRIO","BARRIO","NOMBRE"]),territorioNames:uniqueNames(data.territorio,["NOM_TERR","TERRITORIO","NOMBRE"]),breakdowns,catalogCount:indexItems.length});', 'const askSanti=()=>{const namedScope=resolveNamedScope(santiQuery,data);const r=runSanti(santiQuery,{active,selectedId:selected,selectedCount:selectedData.features.length,counts,manzanaPopulationSum,polygonResults,barrioNames:uniqueNames(data.barrio,["NOM_BARRIO","BARRIO","NOMBRE"]),territorioNames:uniqueNames(data.territorio,["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]),breakdowns,catalogCount:indexItems.length,namedScope,layerNames:Object.fromEntries(layers.map(l=>[l.id,l.name]))});')
+
+          s=s.replace('const openFromIndex=(item:IndexItem)=>{const id=item.mapId||item.id;if(!layers.some(l=>l.id===id))return;ensureActive(id);setSelected(id);setIndexOpen(false)};', 'const openFromIndex=(item:IndexItem)=>{const id=item.mapId||item.id;if(!layers.some(l=>l.id===id))return;ensureActive(id);setSelected(id)};\n const toggleFromIndex=(item:IndexItem)=>{const id=item.mapId||item.id;if(!layers.some(l=>l.id===id))return;setActive(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);setSelected(id)};')
+
+          old='<aside className="sidebar"><div className="catalogHelp"><b>Dimensiones PLADECO</b><p>Jerarquía oficial: Dimensión PLADECO → Sector / temática → Cobertura. Base Territorial es transversal y se controla directamente en el mapa.</p></div><div className="dimensionList">'
+          new='<aside className="sidebar"><div className="catalogHelp"><b>Dimensiones PLADECO</b><p>Jerarquía oficial: Dimensión PLADECO → Sector / temática → Cobertura. Base Territorial es transversal y se controla directamente en el mapa.</p></div><div className="sidebarSearch"><label>Buscar cobertura directamente</label><input value={sidebarQuery} onChange={e=>setSidebarQuery(e.target.value)} placeholder="Ej.: grifos, bibliotecas, movilidad, áreas verdes…"/><small>Escriba una variable o tema si no desea entrar por dimensión. Puede activar varias coberturas.</small>{sidebarMatches.length>0&&<div className="sidebarResults">{sidebarMatches.map(i=>{const id=i.mapId||i.id,on=active.includes(id);return <button key={i.id} className={on?"on":""} onClick={()=>toggleFromIndex(i)}><span>{on?"✓":"+"}</span><b>{i.nombre}</b><small>{itemDimension(i).replace("DIMENSIÓN ","")} · {itemSector(i)}</small></button>})}</div>}</div><div className="dimensionList">'
+          if old not in s: raise SystemExit('sidebar anchor not found')
+          s=s.replace(old,new)
+
+          old='<thead><tr><th>Dimensión PLADECO</th><th>Sector / temática</th><th>Cobertura</th><th>Geometría</th><th>Registros</th><th>Origen / contenedor</th><th>Validación</th><th>Estado visor</th><th>Acciones</th></tr></thead><tbody>{indexFiltered.map(i=><tr key={i.id}><td><strong>{itemDimension(i).replace("DIMENSIÓN ","")}</strong></td>'
+          new='<thead><tr><th>Mapa</th><th>Dimensión PLADECO</th><th>Sector / temática</th><th>Cobertura</th><th>Geometría</th><th>Registros</th><th>Origen / contenedor</th><th>Validación</th><th>Estado visor</th><th>Acciones</th></tr></thead><tbody>{indexFiltered.map(i=>{const mapId=i.mapId||i.id,on=active.includes(mapId);return <tr key={i.id}><td className="mapCheck">{i.verEnMapa&&i.mapId?<label><input type="checkbox" checked={on} onChange={()=>toggleFromIndex(i)}/><span>{on?"Activa":"Activar"}</span></label>:"—"}</td><td><strong>{itemDimension(i).replace("DIMENSIÓN ","")}</strong></td>'
+          if old not in s: raise SystemExit('table anchor not found')
+          s=s.replace(old,new)
+          s=s.replace('</div></td></tr>)}</tbody></table>', '</div></td></tr>})}</tbody></table>')
+          s=s.replace('{i.verEnMapa&&i.mapId&&<button onClick={()=>openFromIndex(i)}>Ver en mapa</button>}', '{i.verEnMapa&&i.mapId&&<button onClick={()=>openFromIndex(i)}>Seleccionar</button>}')
+          s=s.replace('<footer><b>Fuente operativa:</b> 3. REPOSITORIO VISOR.', '<footer><b>Selección múltiple:</b> marque todas las coberturas que quiera visualizar; el Índice permanece abierto hasta que usted lo cierre. · <b>Fuente operativa:</b> 3. REPOSITORIO VISOR.')
+
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/santi.ts')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('catalogCount?:number;\n};', 'catalogCount?:number;\n namedScope?:{level:string;name:string;counts:Record<string,number>;nper:number}|null;layerNames?:Record<string,string>;\n};')
+          anchor=' const polygonCount=(id:string)=>ctx.polygonResults?.find(r=>r.id===id)?.count??0;\n'
+          insert=''' const polygonCount=(id:string)=>ctx.polygonResults?.find(r=>r.id===id)?.count??0;
+ const scope=ctx.namedScope;
+ const layerId=Object.entries(ctx.layerNames??{}).find(([id,name])=>{const n=norm(name);return q.includes(n)||q.includes(norm(id))})?.[0]??(/grifos?/.test(q)?"grifos":/bibliotecas?/.test(q)?"bibliotecas":null);
+ if(scope&&layerId&&isCount){const n=scope.counts[layerId]??0,name=ctx.layerNames?.[layerId]??layerId;return{summary:`${name} en ${scope.level} ${scope.name}: ${n.toLocaleString("es-CL")} registros. El cálculo usa el límite espacial real de ${scope.level}.`,actions};}
+ if(scope&&/poblacion|n_per|personas/.test(q)){return{summary:`Población n_per en ${scope.level} ${scope.name}: ${scope.nper.toLocaleString("es-CL")} personas, calculada con las manzanas Censo 2024 que intersectan ese límite.`,actions};}
+'''
+          if anchor not in s: raise SystemExit('santi anchor not found')
+          s=s.replace(anchor,insert)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/map-gray.css')
+          s=p.read_text(encoding='utf-8')
+          s += '''\n.sidebarSearch{margin:0 10px 10px;padding:10px;border:1px solid #cbd5e1;background:#fff}.sidebarSearch>label{display:block;font-size:11px;font-weight:800;color:var(--stgo);margin-bottom:6px}.sidebarSearch>input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #aebdcd;font-size:11px}.sidebarSearch>small{display:block;margin-top:5px;font-size:9px;line-height:1.35;color:#6b7784}.sidebarResults{display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:230px;overflow:auto}.sidebarResults button{display:grid;grid-template-columns:22px 1fr;grid-template-rows:auto auto;text-align:left;gap:1px 5px;padding:7px;border:1px solid #c9d4e1;background:#f8fafc;cursor:pointer}.sidebarResults button.on{background:#e9f1fb;border-color:#7394bc}.sidebarResults button>span{grid-row:1/3;align-self:center;color:var(--stgo);font-weight:900}.sidebarResults button>b{font-size:10px;color:#163a68}.sidebarResults button>small{font-size:8px;color:#687788}.mapCheck label{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}.mapCheck input{accent-color:var(--stgo)}.mapCheck span{font-size:9px;font-weight:700;color:var(--stgo)}\n'''
+          p.write_text(s,encoding='utf-8')
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/santi.ts app/map-gray.css
+          git commit -m 'Visor: SANTI multiescala, multiselección y buscador directo' || exit 0
+          git push
