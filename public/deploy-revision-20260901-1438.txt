@@ -1,2 +1,2 @@
-Deploy final de revisión para publicar selección acumulativa de puntos y cartela PDF institucional.
-Commit funcional base verificado: 44e1e9405f61fa3ff6f398e0a08742dbf48f0fc2
+Deploy para publicar corrección del selector de coberturas analizables.
+Commit funcional base verificado: 4e1777c9f0c3540f9ea03247ee184785d140cee2
