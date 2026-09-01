@@ -1,0 +1,46 @@
+name: Corregir branding SantIA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/corregir-branding-santia.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  corregir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descargar logo institucional oficial
+        run: |
+          curl -L --fail --retry 3 'https://www.munistgo.cl/wp-content/uploads/2026/08/Escudo_Santiago_antiguo.png' -o public/logo-municipal-oficial.png
+          test -s public/logo-municipal-oficial.png
+      - name: Corregir nombre y logo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('SANTI','SantIA')
+          s=s.replace('${BASE_PATH}/logo-munistgo.png','${BASE_PATH}/logo-municipal-oficial.png')
+          s=s.replace('${BASE_PATH}/logo-munistgo-fallback.svg','${BASE_PATH}/logo-municipal-oficial.png')
+          p.write_text(s,encoding='utf-8')
+          assert '>SantIA<' in s
+          assert 'logo-municipal-oficial.png' in s
+          assert '>SANTI<' not in s
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/page.tsx public/logo-municipal-oficial.png
+          git commit -m 'Visor: usar SantIA y logo municipal oficial' || exit 0
+          git push
