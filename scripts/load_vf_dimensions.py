@@ -5,6 +5,7 @@ ROOT=Path('.')
 TMP=Path('/tmp/gis'); TMP.mkdir(parents=True,exist_ok=True)
 BASE_CFG={'id':'1IoRSijutJamU_9tpNzkMEZEvnAQYAhOm','file':'00_BASE_TERRITORIAL_VF.gpkg'}
 CONFIGS=[
+    {'id':'1qxH1x4Nx14ySZCHuhu36iWjeG4YzjNly','file':'02_DIM_AMBIENTAL_VF.gpkg','out':'ambiental','theme':'AMB','dimension':'DIMENSIÓN AMBIENTAL','sector':'Por clasificar'},
     {'id':'1HTUXi9L4legMkzvunoBKJp3W8DIru30u','file':'04_DIM_ECONOMICA_VF.gpkg','out':'economica','theme':'ECO','dimension':'DIMENSIÓN ECONOMICA','sector':'Actividad económica y comercio'},
     {'id':'1LDgOB3cFIpTIxPKAZyCmy3G-W9ifkEqN','file':'03_DIM_SOCIOCULTURAL_VF.gpkg','out':'sociocultural','theme':'SOC','dimension':'DIMENSIÓN SOCIOCULTURAL','sector':'Por clasificar'},
 ]
@@ -37,7 +38,7 @@ def gtype(g):
 def lid(it): return 'vf-'+it['slug']
 
 def friendly(table):
-    x=re.sub(r'^(ECO|SOC|SEG|TUR|CUL|PAT)_(PTO|POL|LIN)_','',table)
+    x=re.sub(r'^(AMB|ECO|SOC|SEG|TUR|CUL|PAT)_(PTO|POL|LIN)_','',table)
     return x.replace('_',' ').title()
 
 # 1. BASE TERRITORIAL FINAL: reemplaza archivos base anteriores
@@ -54,10 +55,10 @@ base_outputs=[
 for table,out in base_outputs:
     outp=fresh_output(out)
     run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',outp,base_gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
-# Territorios oficiales derivados de la clasificación corregida de barrios
+# Territorios oficiales derivados de la clasificación corregida de manzanas
 terr=fresh_output('public/data/territorios.geojson')
 run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',terr,base_gpkg,
-     '-dialect','SQLITE','-sql','SELECT TERRITORIO, ST_Union(geom) AS geom FROM LIMITE_BARRIOS WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO',
+     '-dialect','SQLITE','-sql','SELECT TERRITORIO, ST_Union(geom) AS geom FROM LIMITE_MANZANA_CENSAL WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO',
      '-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
 
 # controles de la base final
@@ -94,6 +95,7 @@ for cfg in CONFIGS:
     mp.write_text(json.dumps({'file':cfg['file'],'total':len(manifest),'items':manifest},ensure_ascii=False,indent=2),encoding='utf-8')
     print(cfg['file'],len(manifest),'capas')
 
+if len([x for x in all_items if x['theme']=='AMB'])<1: raise RuntimeError('Ambiental debe contener capas espaciales')
 if len([x for x in all_items if x['theme']=='ECO'])!=22: raise RuntimeError('Económica debe tener 22 capas')
 if len([x for x in all_items if x['theme']=='SOC'])!=25: raise RuntimeError('Sociocultural debe tener 25 capas')
 
@@ -155,13 +157,13 @@ rep='{disaggregateField?` · Desagregado por ${disaggregateField}`:""}{(analysis
 if needle in s:s=s.replace(needle,rep,1)
 p.write_text(s,encoding='utf-8')
 
-# 4. CATÁLOGO: solo entradas realmente operativas + 47 subcapas VF
+# 4. CATÁLOGO: solo entradas realmente operativas + subcapas VF
 cp=ROOT/'public/catalog/index_coberturas.json'; cat=json.loads(cp.read_text(encoding='utf-8'))
 base=[x for x in cat.get('items',[]) if not str(x.get('contenedor','')).endswith('_VF.gpkg')]
 for it in all_items:
     gt=gtype(it['geometry']); idv=lid(it)
     base.append({'id':idv,'mapId':idv,'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':gt,'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['records'],'crs':f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)','verEnMapa':True,'download':it['geojson'],'observaciones':'Carga oficial desde versión final _VF. GeoJSON web derivado de la subcapa; GPKG permanece como respaldo por dimensión.'})
-cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-01'; cat['generatedFrom']='00_BASE_TERRITORIAL_VF + 03_DIM_SOCIOCULTURAL_VF + 04_DIM_ECONOMICA_VF'
+cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-01'; cat['generatedFrom']='00_BASE_TERRITORIAL_VF + 02_DIM_AMBIENTAL_VF + 03_DIM_SOCIOCULTURAL_VF + 04_DIM_ECONOMICA_VF'
 cp.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
 print('TOTAL VF',len(all_items),'TOTAL CATÁLOGO',len(base))
