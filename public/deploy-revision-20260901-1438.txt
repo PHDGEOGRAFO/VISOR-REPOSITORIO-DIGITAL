@@ -1,2 +1,2 @@
-Deploy de revisión para publicar selección acumulativa de puntos y reorganización de herramientas.
-Commit funcional base verificado: 01354500df855f122b14de55fe4af3cf99fd07dd
+Deploy final de revisión para publicar selección acumulativa de puntos y cartela PDF institucional.
+Commit funcional base verificado: 44e1e9405f61fa3ff6f398e0a08742dbf48f0fc2
