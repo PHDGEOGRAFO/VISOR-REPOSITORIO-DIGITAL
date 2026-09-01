@@ -1,0 +1,62 @@
+name: Corregir poligono y buffer
+on:
+  push:
+    paths:
+      - '.github/workflows/corregir-poligono-buffer.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Corregir dibujo de poligono
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text()
+          old='const common={key:i,onPointerDown:(e:any)=>{e.stopPropagation()},onClick:(e:any)=>{e.stopPropagation();onFeature(f,id)}};'
+          new='const common={key:i,onPointerDown:(e:any)=>{if(viz!=="draw")e.stopPropagation()},onClick:(e:any)=>{if(viz==="draw")return;e.stopPropagation();onFeature(f,id)}};'
+          if old not in s:
+              raise SystemExit('No se encontro common handler esperado')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Mover radio de buffer al bloque 1
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          marker='</select></label></div></div><div className="visualBlock"><b>2. Visualización / capas independientes</b>'
+          buffer='{analysis==="Buffer"&&<><label>Radio del buffer<select value={radius} onChange={e=>setRadius(Number(e.target.value))}><option value={100}>100 m</option><option value={250}>250 m</option><option value={500}>500 m</option><option value={1000}>1.000 m</option></select></label></>}'
+          # extraer bloque buffer actual, tolerando que existan controles posteriores
+          start=s.find('{analysis==="Buffer"&&<><label>Radio del buffer')
+          if start<0:
+              raise SystemExit('No se encontro bloque Radio del buffer')
+          end=s.find('</>}',start)
+          if end<0:
+              raise SystemExit('No se encontro cierre del bloque buffer')
+          end+=4
+          oldbuf=s[start:end]
+          s=s[:start]+s[end:]
+          if marker not in s:
+              raise SystemExit('No se encontro punto de insercion en bloque 1')
+          s=s.replace(marker,buffer+marker,1)
+          p.write_text(s)
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar correcciones
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/InteractiveMap.tsx app/page.tsx
+          git commit -m 'Visor: corregir poligono y ubicar buffer en seleccion' || exit 0
+          git push
