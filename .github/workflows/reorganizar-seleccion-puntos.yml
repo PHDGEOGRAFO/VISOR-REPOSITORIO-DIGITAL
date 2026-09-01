@@ -1,0 +1,56 @@
+name: Reorganizar selección de puntos
+on:
+  push:
+    paths:
+      - '.github/workflows/reorganizar-seleccion-puntos.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Reorganizar selección y visualización
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          s=s.replace('const[selectionMode,setSelectionMode]=useState<"Punto"|"Varios puntos"|"Polígono">("Punto");','const[selectionMode,setSelectionMode]=useState<"Puntos"|"Polígono">("Puntos");')
+          s=s.replace('const sourceFeatures=selectionMode==="Polígono"?(spatialSelection??selectedData.features):selectionMode==="Varios puntos"?(multiSelected.length?multiSelected:selectedData.features):(feature&&feature.layerId===selected?[feature.f]:selectedData.features);','const sourceFeatures=selectionMode==="Polígono"?(spatialSelection??selectedData.features):(multiSelected.length?multiSelected:selectedData.features);')
+          s=s.replace('const pointAnchors=selectionMode==="Varios puntos"?multiSelected.filter(f=>f.geometry.type==="Point"):(feature&&feature.layerId===selected&&feature.f.geometry.type==="Point"?[feature.f]:[]);','const pointAnchors=multiSelected.filter(f=>f.geometry.type==="Point");')
+          s=s.replace('selectedFeature={selectionMode==="Varios puntos"?(multiSelected[0]??null):(feature?.f??null)}','selectedFeature={multiSelected[0]??feature?.f??null}')
+          s=s.replace('analysis==="Buffer desde punto"','analysis==="Buffer"')
+          pattern=r'<div className="selectionBlock"><b>1\. Selección espacial</b>.*?</div><div className="analysisBlock">'
+          repl='''<div className="selectionBlock"><b>1. Selección espacial</b><div className="selectionButtons"><button disabled={selectedLayer.geometry!=="Punto"} className={selectionMode==="Puntos"?"on":""} onClick={()=>{setSelectionMode("Puntos");setViz("simple");setPolygon(null);setSpatialSelection(null)}}>Seleccionar puntos</button><button className={selectionMode==="Polígono"?"on":""} onClick={()=>{setSelectionMode("Polígono");setFeature(null);setMultiSelected([])}}>Polígono</button></div><small>{selectionMode==="Puntos"?`${multiSelected.length} punto(s) seleccionado(s). Cursor de selección activo: haga clic para agregar o quitar puntos.`:"Dibuje un polígono sobre el mapa para definir el área de análisis."}</small>{selectionMode==="Puntos"&&multiSelected.length>0&&<button className="clearSelection" onClick={()=>{setMultiSelected([]);setFeature(null)}}>Limpiar selección</button>}</div><div className="analysisBlock">'''
+          s,n=re.subn(pattern,repl,s,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'No se pudo reemplazar bloque selección: {n}')
+          pattern2=r'<div className="visualBlock"><b>3\. Visualización / capas independientes</b><div className="toolButtons">.*?</div></div>'
+          repl2='''<div className="visualBlock"><b>3. Visualización / capas independientes</b><div className="toolButtons"><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="simple"&&selectedLayer.geometry==="Punto"?"on":""} onClick={()=>setViz("simple")}>Puntos</button><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="cluster"?"on":""} onClick={()=>setViz(viz==="cluster"?"simple":"cluster")}>Clúster</button><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="heat"?"on":""} onClick={()=>setViz(viz==="heat"?"simple":"heat")}>Calor</button><button className={lineasOn?"on prc":"prc"} onClick={()=>toggle("lineas-prc")}>Líneas oficiales</button></div></div>'''
+          s,n2=re.subn(pattern2,repl2,s,flags=re.S)
+          if n2!=1:
+              raise SystemExit(f'No se pudo reemplazar bloque visualización: {n2}')
+          old='''onFeature={(f,layerId)=>{setSelected(layerId);if(selectionMode==="Varios puntos"&&layerId===selected&&f.geometry.type==="Point"){setMultiSelected(a=>a.includes(f)?a.filter(x=>x!==f):[...a,f]);setFeature(null)}else{setFeature({f,layerId});if(selectionMode!=="Varios puntos")setMultiSelected([])}setSpatialSelection(polygon?featuresInPolygon(data[layerId],polygon):null)}}'''
+          new='''onFeature={(f,layerId)=>{if(selectionMode==="Puntos"&&layerId===selected&&f.geometry.type==="Point"){setMultiSelected(a=>a.includes(f)?a.filter(x=>x!==f):[...a,f]);setFeature({f,layerId})}else if(selectionMode!=="Polígono"){setFeature({f,layerId})}setSpatialSelection(polygon?featuresInPolygon(data[layerId],polygon):null)}}'''
+          if old not in s:
+              raise SystemExit('No se encontró manejador onFeature esperado')
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx
+          git commit -m "Visor: selección acumulativa de puntos" || exit 0
+          git push
