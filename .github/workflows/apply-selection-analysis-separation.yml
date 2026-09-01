@@ -1,0 +1,71 @@
+name: Aplicar selección y análisis separados
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-selection-analysis-separation.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar cambios
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          s=s.replace('const[viz,setViz]=useState<VizMode>("simple");\n const[polygon,setPolygon]=useState<DrawPolygon|null>(null);\n const[spatialSelection,setSpatialSelection]=useState<GeoFeature[]|null>(null);', 'const[viz,setViz]=useState<VizMode>("simple");\n const[selectionMode,setSelectionMode]=useState<"Punto"|"Varios puntos"|"Polígono">("Punto");\n const[multiSelected,setMultiSelected]=useState<GeoFeature[]>([]);\n const[polygon,setPolygon]=useState<DrawPolygon|null>(null);\n const[spatialSelection,setSpatialSelection]=useState<GeoFeature[]|null>(null);')
+
+          s=s.replace('const selectedLayer=layers.find(l=>l.id===selected)??layers[0],selectedData=data[selected]??empty,sourceFeatures=spatialSelection??selectedData.features;', 'const selectedLayer=layers.find(l=>l.id===selected)??layers[0],selectedData=data[selected]??empty;\n const sourceFeatures=selectionMode==="Polígono"?(spatialSelection??selectedData.features):selectionMode==="Varios puntos"?(multiSelected.length?multiSelected:selectedData.features):(feature&&feature.layerId===selected?[feature.f]:selectedData.features);')
+
+          s=s.replace('const nearestDistance=useMemo(()=>{if(!feature||feature.layerId!==selected||feature.f.geometry.type!=="Point")return null;const o=feature.f.geometry.coordinates as number[],ds=selectedData.features.filter(f=>f!==feature.f&&f.geometry.type==="Point").map(f=>distanceMeters(o,f.geometry.coordinates as number[]));return ds.length?Math.min(...ds):null},[feature,selected,selectedData]);', 'const pointAnchors=selectionMode==="Varios puntos"?multiSelected.filter(f=>f.geometry.type==="Point"):(feature&&feature.layerId===selected&&feature.f.geometry.type==="Point"?[feature.f]:[]);\n const nearestDistance=useMemo(()=>{if(!pointAnchors.length)return null;const ds=pointAnchors.flatMap(o=>selectedData.features.filter(f=>f.geometry.type==="Point"&&!pointAnchors.includes(f)).map(f=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])));return ds.length?Math.min(...ds):null},[pointAnchors,selectedData]);')
+
+          s=s.replace('const bufferCount=useMemo(()=>{if(analysis!=="Buffer desde punto"||!feature||feature.layerId!==selected||feature.f.geometry.type!=="Point")return null;const o=feature.f.geometry.coordinates as number[];return selectedData.features.filter(f=>f.geometry.type==="Point"&&distanceMeters(o,f.geometry.coordinates as number[])<=radius).length},[analysis,feature,selected,selectedData,radius]);', 'const bufferCount=useMemo(()=>{if(analysis!=="Buffer"||!pointAnchors.length)return null;return selectedData.features.filter(f=>f.geometry.type==="Point"&&pointAnchors.some(o=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])<=radius)).length},[analysis,pointAnchors,selectedData,radius]);')
+
+          s=s.replace('analysis==="Buffer desde punto"?(bufferCount!=null?`${bufferCount.toLocaleString("es-CL")} registros dentro de ${radius.toLocaleString("es-CL")} m · incluye el punto seleccionado`:`Seleccione un punto de ${selectedLayer.name} en el mapa`):analysis==="Proximidad"?', 'analysis==="Buffer"?(bufferCount!=null?`${bufferCount.toLocaleString("es-CL")} registros dentro de ${radius.toLocaleString("es-CL")} m desde ${pointAnchors.length} punto(s) seleccionado(s)`:`Seleccione uno o varios puntos de ${selectedLayer.name}`):analysis==="Proximidad"?')
+
+          old='<div className="toolButtons"><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="simple"?"on":""} onClick={()=>setMode("simple")}>Puntos</button><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="cluster"?"on":""} onClick={()=>setMode("cluster")}>Clúster</button><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="heat"?"on":""} onClick={()=>setMode("heat")}>Calor</button><button className={viz==="draw"?"on":""} onClick={()=>setMode("draw")}>Polígono</button><button className={lineasOn?"on prc":"prc"} onClick={()=>toggle("lineas-prc")}>Líneas oficiales</button></div><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}><option>Cantidad de registros</option><option>Densidad</option><option>Buffer desde punto</option><option>Proximidad</option><option>Isócronas</option><option>Suma n_per</option><option>Promedio n_per</option></select></label>'
+          new='''<div className="selectionBlock"><b>1. Selección espacial</b><div className="selectionButtons"><button disabled={selectedLayer.geometry!=="Punto"} className={selectionMode==="Punto"?"on":""} onClick={()=>{setSelectionMode("Punto");setMultiSelected([]);setPolygon(null);setSpatialSelection(null)}}>Punto</button><button disabled={selectedLayer.geometry!=="Punto"} className={selectionMode==="Varios puntos"?"on":""} onClick={()=>{setSelectionMode("Varios puntos");setFeature(null);setPolygon(null);setSpatialSelection(null)}}>Varios puntos</button><button className={selectionMode==="Polígono"?"on":""} onClick={()=>{setSelectionMode("Polígono");setFeature(null);setMultiSelected([])}}>Polígono</button></div><small>{selectionMode==="Punto"?"Haga clic en un elemento de la cobertura activa.":selectionMode==="Varios puntos"?`${multiSelected.length} punto(s) seleccionado(s). Haga clic para agregar/quitar.`:"Dibuje un polígono sobre el mapa para definir el área de análisis."}</small></div><div className="analysisBlock"><b>2. Análisis sobre la selección</b><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}><option>Cantidad de registros</option><option>Buffer</option><option>Proximidad</option><option>Densidad</option><option>Isócronas</option><option>Suma n_per</option><option>Promedio n_per</option></select></label></div><div className="visualBlock"><b>3. Visualización / capas independientes</b><div className="toolButtons"><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="cluster"?"on":""} onClick={()=>setViz(viz==="cluster"?"simple":"cluster")}>Clúster</button><button disabled={selectedLayer.geometry!=="Punto"} className={viz==="heat"?"on":""} onClick={()=>setViz(viz==="heat"?"simple":"heat")}>Calor</button><button className={lineasOn?"on prc":"prc"} onClick={()=>toggle("lineas-prc")}>Líneas oficiales</button></div></div>'''
+          if old not in s:
+            raise SystemExit('tool block not found')
+          s=s.replace(old,new)
+
+          s=s.replace('{analysis==="Proximidad"&&<label>Distancia máxima', '{(analysis==="Buffer"||analysis==="Proximidad")&&<label>Distancia máxima')
+          s=s.replace('<option value={100}>100 m</option><option value={250}>250 m</option><option value={500}>500 m</option><option value={1000}>1.000 m</option>', '<option value={100}>100 m</option><option value={200}>200 m</option><option value={300}>300 m</option><option value={500}>500 m</option><option value={1000}>1.000 m</option>')
+
+          oldmap='<section className="map"><InteractiveMap data={data} active={active} styles={styles} selectedLayerId={selected} viz={viz} onPolygon={handlePolygon} streets={streets} analysis={analysis} selectedFeature={feature?.f??null} isoMode={isoMode} isoMinutes={isoMinutes} radius={radius} onFeature={(f,layerId)=>{setFeature({f,layerId});setSelected(layerId);setSpatialSelection(polygon?featuresInPolygon(data[layerId],polygon):null)}}/>'
+          newmap='''<section className="map"><InteractiveMap data={data} active={active} styles={styles} selectedLayerId={selected} viz={selectionMode==="Polígono"?"draw":viz} onPolygon={handlePolygon} streets={streets} analysis={analysis} selectedFeature={selectionMode==="Varios puntos"?(multiSelected[0]??null):(feature?.f??null)} selectedFeatures={multiSelected} isoMode={isoMode} isoMinutes={isoMinutes} radius={radius} onFeature={(f,layerId)=>{setSelected(layerId);if(selectionMode==="Varios puntos"&&layerId===selected&&f.geometry.type==="Point"){setMultiSelected(a=>a.includes(f)?a.filter(x=>x!==f):[...a,f]);setFeature(null)}else{setFeature({f,layerId});if(selectionMode!=="Varios puntos")setMultiSelected([])}setSpatialSelection(polygon?featuresInPolygon(data[layerId],polygon):null)}}/>'''
+          if oldmap not in s:
+            raise SystemExit('map block not found')
+          s=s.replace(oldmap,newmap)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('selectedFeature,isoMode="A pie",isoMinutes=10,radius=500}:{data:Record<string,GeoCollection>;active:string[];styles:Record<string,LayerStyle>;onFeature:(f:GeoFeature,layerId:string)=>void;viz?:VizMode;selectedLayerId?:string;onPolygon?:(p:DrawPolygon|null)=>void;streets?:GeoCollection;analysis?:string;selectedFeature?:GeoFeature|null;isoMode?:string;isoMinutes?:number;radius?:number}){', 'selectedFeature,selectedFeatures=[],isoMode="A pie",isoMinutes=10,radius=500}:{data:Record<string,GeoCollection>;active:string[];styles:Record<string,LayerStyle>;onFeature:(f:GeoFeature,layerId:string)=>void;viz?:VizMode;selectedLayerId?:string;onPolygon?:(p:DrawPolygon|null)=>void;streets?:GeoCollection;analysis?:string;selectedFeature?:GeoFeature|null;selectedFeatures?:GeoFeature[];isoMode?:string;isoMinutes?:number;radius?:number}){')
+          s=s.replace('{analysis==="Proximidad"&&anchor&&(()=>{', '{(analysis==="Proximidad"||analysis==="Buffer")&&anchor&&(()=>{')
+          marker='{viz==="cluster"&&clusters.map((c,i)=><g key={`c${i}`} onClick={()=>c.items[0]&&onFeature(c.items[0].f,selectedLayerId||"")}><circle cx={c.x} cy={c.y} r={Math.min(24,9+Math.sqrt(c.items.length)*3)} fill="#073879" fillOpacity=".9" stroke="#fff" strokeWidth="2"/><text x={c.x} y={c.y+3} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="700">{c.items.length}</text></g>)}'
+          add=marker+'\n   {selectedFeatures.filter(f=>f.geometry.type==="Point").map((f,i)=>{const[x,y]=project(f.geometry.coordinates,zoom,cw.x,cw.y);return <circle key={`sel${i}`} cx={x} cy={y} r="8" fill="none" stroke="#ffbd00" strokeWidth="3"/>})}'
+          if marker not in s:
+            raise SystemExit('cluster marker not found')
+          s=s.replace(marker,add)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/map-gray.css')
+          s=p.read_text(encoding='utf-8')
+          s += '''\n.selectionBlock,.analysisBlock,.visualBlock{margin-top:9px;padding:8px;border:1px solid #b8c7d8;background:#f8fbfe}.selectionBlock>b,.analysisBlock>b,.visualBlock>b{display:block;margin-bottom:6px;color:#073879;font-size:10px;text-transform:uppercase;letter-spacing:.04em}.selectionButtons{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.selectionButtons button{padding:7px 4px;border:1px solid #9fb2c8;background:#fff;color:#073879;font-size:10px;font-weight:700}.selectionButtons button.on{background:#073879;color:#fff}.selectionButtons button:disabled{opacity:.45}.selectionBlock small{display:block;margin-top:6px;line-height:1.35;color:#52606d}\n'''
+          p.write_text(s,encoding='utf-8')
+      - name: Validar
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/InteractiveMap.tsx app/map-gray.css
+          git commit -m 'Visor: separar selección análisis y visualización' || exit 0
+          git push
