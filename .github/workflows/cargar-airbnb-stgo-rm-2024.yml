@@ -25,8 +25,8 @@ jobs:
       - name: Descargar GPKG oficiales Airbnb
         run: |
           mkdir -p public/data/turismo public/data/gpkg /tmp/airbnb
-          gdown --id 1oDdbUca2t9RKbfJZxw5YlEOyPyidOgIT -O /tmp/airbnb/TUR_PTO_AIRBNB_STGO_2024.gpkg
-          gdown --id 1norQu21sliU7e4XJS1WBd7nrCvnjtb_M -O /tmp/airbnb/TUR_PTO_AIRBNB_RM_2024.gpkg
+          gdown 1oDdbUca2t9RKbfJZxw5YlEOyPyidOgIT -O /tmp/airbnb/TUR_PTO_AIRBNB_STGO_2024.gpkg
+          gdown 1norQu21sliU7e4XJS1WBd7nrCvnjtb_M -O /tmp/airbnb/TUR_PTO_AIRBNB_RM_2024.gpkg
           test -s /tmp/airbnb/TUR_PTO_AIRBNB_STGO_2024.gpkg
           test -s /tmp/airbnb/TUR_PTO_AIRBNB_RM_2024.gpkg
       - name: Validar y convertir
@@ -46,17 +46,17 @@ jobs:
           from pathlib import Path
           import json
           p=Path('app/page.tsx'); s=p.read_text()
-          # admitir GPKG complementario por item
           s=s.replace('tipoContenedor?:string;subcapa?:string;', 'tipoContenedor?:string;subcapa?:string;gpkgDownload?:string;')
           s=s.replace('function gpkgDownload(i:IndexItem){const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}', 'function gpkgDownload(i:IndexItem){if(i.gpkgDownload)return i.gpkgDownload;const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}')
-          # capas operativas independientes
-          marker=' {id:"bibliotecas",name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`,color:"#2877a6",description:"Variable temática sociocultural. Se activa desde Herramientas, Índice o SANTI.",source:"Biblioteca Digital"},'
+          marker=' {id:"bibliotecas",name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`,color:"#2877a6",description:"Variable temática sociocultural. Se activa desde Herramientas, Índice o SantIA.",source:"Biblioteca Digital"},'
           add='''\n {id:"airbnb-stgo-2024",name:"Airbnb Santiago 2024",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/turismo/airbnb-stgo-2024.geojson`,color:"#8b5a9a",description:"Oferta Airbnb 2024 en la comuna de Santiago.",source:"TUR_PTO_AIRBNB_STGO_2024.gpkg"},\n {id:"airbnb-rm-2024",name:"Airbnb RM 2024",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/turismo/airbnb-rm-2024.geojson`,color:"#5f729b",description:"Cobertura comparativa Airbnb 2024 para la Región Metropolitana.",source:"TUR_PTO_AIRBNB_RM_2024.gpkg"},'''
-          if 'id:"airbnb-stgo-2024"' not in s and marker in s: s=s.replace(marker,marker+add,1)
+          if 'id:"airbnb-stgo-2024"' not in s:
+              assert marker in s, 'No se encontro ancla bibliotecas para insertar Airbnb'
+              s=s.replace(marker,marker+add,1)
           smarker='bibliotecas:{color:"#2877a6",pointRadius:6},'
-          if '"airbnb-stgo-2024":' not in s: s=s.replace(smarker,smarker+'\n "airbnb-stgo-2024":{color:"#8b5a9a",pointRadius:4},"airbnb-rm-2024":{color:"#5f729b",pointRadius:3},',1)
-          # actualizar textos antiguos SANTI en descripciones si quedan
-          s=s.replace('Índice o SANTI','Índice o SantIA').replace('por SANTI','por SantIA')
+          if '"airbnb-stgo-2024":' not in s:
+              assert smarker in s, 'No se encontro ancla estilos bibliotecas'
+              s=s.replace(smarker,smarker+'\n "airbnb-stgo-2024":{color:"#8b5a9a",pointRadius:4},"airbnb-rm-2024":{color:"#5f729b",pointRadius:3},',1)
           p.write_text(s)
 
           idx=Path('public/catalog/index_coberturas.json'); j=json.loads(idx.read_text())
@@ -77,6 +77,7 @@ jobs:
             j=json.loads(Path(p).read_text()); assert len(j['features'])==n,(p,len(j['features']))
           idx=json.loads(Path('public/catalog/index_coberturas.json').read_text())
           ids={x['id'] for x in idx['items']}; assert {'airbnb-stgo-2024','airbnb-rm-2024'}<=ids
+          s=Path('app/page.tsx').read_text(); assert 'id:"airbnb-stgo-2024"' in s and 'id:"airbnb-rm-2024"' in s
           print('Airbnb STGO/RM OK; indice',idx['total'])
           PY
           npm ci
