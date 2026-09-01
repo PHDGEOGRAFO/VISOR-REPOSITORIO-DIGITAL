@@ -1,2 +1,2 @@
-Deploy de revisión para publicar correcciones de logo, coberturas y consulta espacial SANTI.
-Commit funcional base: 7c9bb00506ea5ee1a4771235ea6a18dbaeef3eca
+Deploy de revisión para publicar selección acumulativa de puntos y reorganización de herramientas.
+Commit funcional base verificado: 01354500df855f122b14de55fe4af3cf99fd07dd
