@@ -1,0 +1,130 @@
+name: Cargar 04_DIM_ECONOMICA_VF
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cargar-04-dim-economica-vf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cargar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar herramientas GIS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin sqlite3
+          python -m pip install --upgrade pip gdown
+      - name: Descargar GeoPackage VF
+        run: |
+          mkdir -p /tmp/gis
+          gdown 'https://drive.google.com/uc?id=1HTUXi9L4legMkzvunoBKJp3W8DIru30u' -O /tmp/gis/04_DIM_ECONOMICA_VF.gpkg
+          test -s /tmp/gis/04_DIM_ECONOMICA_VF.gpkg
+          basename /tmp/gis/04_DIM_ECONOMICA_VF.gpkg | grep -q '_VF'
+          sqlite3 /tmp/gis/04_DIM_ECONOMICA_VF.gpkg "SELECT COUNT(*) FROM ECO_INDICE_COBERTURAS;" | grep -q '^22$'
+      - name: Publicar respaldo y subcapas web
+        run: |
+          mkdir -p public/data/gpkg public/data/economica public/data/economica/csv
+          cp /tmp/gis/04_DIM_ECONOMICA_VF.gpkg public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+          python - <<'PY'
+          import sqlite3, subprocess, pathlib, re, json
+          gpkg='/tmp/gis/04_DIM_ECONOMICA_VF.gpkg'
+          out=pathlib.Path('public/data/economica')
+          csvdir=out/'csv'
+          con=sqlite3.connect(gpkg)
+          rows=con.execute('SELECT orden,cobertura,registros,geometria,crs,archivo_maestro FROM ECO_INDICE_COBERTURAS ORDER BY orden').fetchall()
+          manifest=[]
+          for orden,cobertura,registros,geometria,crs,archivo in rows:
+              slug=cobertura.lower()
+              gj=out/f'{slug}.geojson'
+              cv=csvdir/f'{slug}.csv'
+              subprocess.run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',str(gj),gpkg,cobertura,'-lco','RFC7946=YES'],check=True)
+              subprocess.run(['ogr2ogr','-f','CSV',str(cv),gpkg,cobertura,'-lco','GEOMETRY=AS_WKT'],check=True)
+              manifest.append({'orden':orden,'cobertura':cobertura,'slug':slug,'registros':registros,'geometria':geometria,'crs':crs,'archivo_maestro':archivo,'geojson':f'/data/economica/{slug}.geojson','csv':f'/data/economica/csv/{slug}.csv','gpkg':'/data/gpkg/04_DIM_ECONOMICA_VF.gpkg'})
+          (out/'manifest_04_dim_economica_vf.json').write_text(json.dumps({'archivo':'04_DIM_ECONOMICA_VF.gpkg','total':len(manifest),'items':manifest},ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+      - name: Integrar capas económicas al visor y catálogo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,re
+          manifest=json.loads(Path('public/data/economica/manifest_04_dim_economica_vf.json').read_text(encoding='utf-8'))['items']
+          friendly={
+          'ECO_LIN_ESTACIONAMIENTOS_TURISMO':'Estacionamientos turismo',
+          'ECO_LIN_RUTAS_OFTURISMO':'Rutas Oficina de Turismo',
+          'ECO_POL_FERIAS_LIBRES':'Ferias libres (trazados)',
+          'ECO_PTO_AIRBNB_2024':'Airbnb 2024',
+          'ECO_PTO_ALOJAMIENTO_SERNATUR_2025':'Alojamiento SERNATUR 2025',
+          'ECO_PTO_APARCADORES_ILEGALES':'Aparcadores ilegales',
+          'ECO_PTO_BANCOS':'Bancos',
+          'ECO_PTO_COMERCIO_AMBULANTE_2025':'Comercio ambulante 2025',
+          'ECO_PTO_COMERCIO_OSM':'Comercio OSM',
+          'ECO_PTO_CONCESIONES_PERMISOS_2026':'Concesiones y permisos 2026',
+          'ECO_PTO_CONCESIONES_TURISMO':'Concesiones turismo',
+          'ECO_PTO_DNE_INE_2017':'Directorio Nacional de Empresas INE 2017',
+          'ECO_PTO_FARMACIAS':'Farmacias',
+          'ECO_PTO_FERIAS_LIBRES':'Ferias libres',
+          'ECO_PTO_GASTRONOMIA':'Gastronomía',
+          'ECO_PTO_HITOS_RUTAS_OFTURISMO':'Hitos rutas Oficina de Turismo',
+          'ECO_PTO_PATENTES_INE_2024':'Patentes INE 2024',
+          'ECO_PTO_PATENTES_TURISMO_SII':'Patentes turismo SII',
+          'ECO_PTO_PROPIEDADES_CONCESION_COMERCIAL_2025':'Propiedades concesión comercial 2025',
+          'ECO_PTO_RUTAS_TURISTICAS_2024':'Rutas turísticas 2024',
+          'ECO_PTO_RUTA_DEL_CAFE':'Ruta del Café',
+          'ECO_PTO_SUPERMERCADOS_STGO':'Supermercados Santiago'}
+          def gtype(x):
+              x=(x or '').lower()
+              return 'Punto' if 'point' in x else ('Línea' if 'line' in x else 'Polígono')
+          # app layers
+          p=Path('app/page.tsx'); s=p.read_text(encoding='utf-8')
+          defs=[]; styles=[]
+          palette=['#8b5e34','#9d6b3b','#a96f28','#6f7f3f','#8a4f64','#3f6f7f','#7a6248','#9a623f']
+          for idx,it in enumerate(manifest):
+              lid=it['slug'].replace('eco_','eco-').replace('_','-')
+              name=friendly.get(it['cobertura'],it['cobertura'])
+              gt=gtype(it['geometria']); color=palette[idx%len(palette)]
+              defs.append(f' {{id:"{lid}",name:{json.dumps(name,ensure_ascii=False)},theme:"ECO",geometry:"{gt}",url:`${{BASE_PATH}}{it["geojson"]}`,color:"{color}",description:"Cobertura de la Dimensión Económica. Fuente operativa: 04_DIM_ECONOMICA_VF.gpkg.",source:"04_DIM_ECONOMICA_VF.gpkg"}}')
+              style=f'"{lid}":{{color:"{color}"'+(',pointRadius:4}' if gt=='Punto' else (',width:1.3,opacity:.9}' if gt=='Línea' else ',fill:"#eadfce",width:1,opacity:.18}'))
+              styles.append(style)
+          marker='/* ECONOMICA_VF_LAYERS */'
+          if marker not in s:
+              anchor=' {id:"bibliotecas",name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`,color:"#2877a6",description:"Variable temática sociocultural. Se activa desde Herramientas, Índice o SANTI.",source:"Biblioteca Digital"}\n];'
+              repl=anchor[:-3]+',\n '+marker+'\n'+',\n'.join(defs)+'\n];'
+              s=s.replace(anchor,repl)
+              s=s.replace('"lineas-prc":{color:"#d5523f",width:1.15,opacity:.92},grifos:{color:"#d5523f",pointRadius:4},bibliotecas:{color:"#2877a6",pointRadius:6}\n};', '"lineas-prc":{color:"#d5523f",width:1.15,opacity:.92},grifos:{color:"#d5523f",pointRadius:4},bibliotecas:{color:"#2877a6",pointRadius:6},\n '+marker+'\n '+',\n '.join(styles)+'\n};')
+          # lazy thematic loading; bases remain available
+          old='  layers.forEach(layer=>{\n   if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;'
+          new='  layers.forEach(layer=>{\n   const shouldLoad=layer.theme==="BASE"||layer.activeDefault||active.includes(layer.id)||layer.id===selected;\n   if(!shouldLoad)return;\n   if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;'
+          s=s.replace(old,new)
+          s=s.replace(' },[population]);',' },[population,active,selected]);',1)
+          p.write_text(s,encoding='utf-8')
+          # catalog
+          cp=Path('public/catalog/index_coberturas.json'); cat=json.loads(cp.read_text(encoding='utf-8'))
+          cat['items']=[x for x in cat.get('items',[]) if x.get('contenedor')!='04_DIM_ECONOMICA_VF.gpkg']
+          for it in manifest:
+              lid=it['slug'].replace('eco_','eco-').replace('_','-')
+              cat['items'].append({'id':lid,'mapId':lid,'tema':'ECO','dimensionPladeco':'DIMENSIÓN ECONOMICA','sector':'Actividad económica y comercio','nombre':friendly.get(it['cobertura'],it['cobertura']),'carpeta':'04_DIM_ECONOMICA_VF','geometria':gtype(it['geometria']),'escala':'Comuna','contenedor':'04_DIM_ECONOMICA_VF.gpkg','tipoContenedor':'GeoPackage VF','subcapa':it['cobertura'],'estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['registros'],'crs':'EPSG:32719 (fuente) / EPSG:4326 (web)','verEnMapa':True,'download':it['geojson'],'downloadGeojson':it['geojson'],'downloadCsv':it['csv'],'downloadGpkg':it['gpkg'],'observaciones':'Carga oficial desde archivo _VF. GeoPackage por dimensión; GeoJSON/CSV corresponden a esta subcapa.'})
+          cat['total']=len(cat['items'])
+          cp.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          PY
+      - name: Validar compilación y archivos
+        run: |
+          test -f public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+          test $(find public/data/economica -maxdepth 1 -name '*.geojson' | wc -l) -eq 22
+          test $(find public/data/economica/csv -name '*.csv' | wc -l) -eq 22
+          npm ci
+          npx next build --webpack
+      - name: Guardar carga VF
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/page.tsx public/catalog/index_coberturas.json public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg public/data/economica
+          git commit -m 'Visor: cargar 04_DIM_ECONOMICA_VF' || exit 0
+          git push
