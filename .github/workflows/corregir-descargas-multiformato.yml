@@ -1,0 +1,62 @@
+name: Corregir descargas multiformato
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/corregir-descargas-multiformato.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Corregir descargas del Índice
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          old='{indexFiltered.map(i=>{const mapId=i.mapId||i.id,on=active.includes(mapId);return <tr key={i.id}>'
+          new='{indexFiltered.map(i=>{const mapId=i.mapId||i.id,on=active.includes(mapId),gpkgPath=(i.contenedor||"").toLowerCase().endsWith(".gpkg")?`/data/gpkg/${i.contenedor}`:"";return <tr key={i.id}>'
+          if old not in s:
+              raise SystemExit('No se encontró el inicio de fila del índice')
+          s=s.replace(old,new,1)
+          old2='{i.download?<a href={`${BASE_PATH}${i.download}`} download>Descargar datos</a>:<span className="catalogOnly">Catálogo</span>}'
+          new2='{i.download?<a href={`${BASE_PATH}${i.download}`} download>GeoJSON</a>:<span className="catalogOnly">Sin GeoJSON</span>}{gpkgPath&&<a href={`${BASE_PATH}${gpkgPath}`} download>GeoPackage</a>}'
+          if old2 not in s:
+              raise SystemExit('No se encontró la descarga actual')
+          s=s.replace(old2,new2,1)
+          s=s.replace('Seleccionar = mostrar en mapa · Descargar datos = archivo disponible','Seleccionar = mostrar en mapa · GeoJSON = capa web · GeoPackage = archivo GIS oficial')
+          p.write_text(s)
+          PY
+      - name: Mejorar presentación de formatos
+        run: |
+          cat >> app/globals.css <<'CSS'
+
+/* Descargas multiformato del Índice */
+.indexActions{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.indexActions a,.indexActions button{white-space:nowrap}.indexActions a[href$=".gpkg"]{font-weight:700;border-color:var(--green);background:#eef4f1}.downloadHeaderHelp{display:block;margin-top:4px;font-size:8px;line-height:1.3;font-weight:400;text-transform:none;max-width:260px}
+CSS
+      - name: Validar archivos GPKG publicados
+        run: |
+          test -s public/data/gpkg/00_BASE_TERRITORIAL_VF.gpkg
+          test -s public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg
+          test -s public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
+          test -s public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css
+          git commit -m 'Visor: mostrar GeoJSON y GeoPackage en Índice' || exit 0
+          git push
