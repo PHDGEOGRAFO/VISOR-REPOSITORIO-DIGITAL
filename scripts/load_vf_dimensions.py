@@ -16,10 +16,17 @@ def run(cmd):
 def download(cfg):
     assert '_VF' in cfg['file']
     dst=TMP/cfg['file']
+    if dst.exists(): dst.unlink()
     run(['gdown',f"https://drive.google.com/uc?id={cfg['id']}",'-O',dst])
     if not dst.exists() or dst.stat().st_size<1024:
         raise RuntimeError(f'Archivo inválido: {dst}')
     return dst
+
+def fresh_output(path):
+    p=Path(path)
+    p.parent.mkdir(parents=True,exist_ok=True)
+    if p.exists(): p.unlink()
+    return p
 
 def gtype(g):
     x=(g or '').upper()
@@ -45,9 +52,11 @@ base_outputs=[
     ('UNIDADES_VECINALES','public/data/unidades_vecinales.geojson'),
 ]
 for table,out in base_outputs:
-    run(['ogr2ogr','-overwrite','-f','GeoJSON','-t_srs','EPSG:4326',out,base_gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
+    outp=fresh_output(out)
+    run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',outp,base_gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
 # Territorios oficiales derivados de la clasificación corregida de barrios
-run(['ogr2ogr','-overwrite','-f','GeoJSON','-t_srs','EPSG:4326','public/data/territorios.geojson',base_gpkg,
+terr=fresh_output('public/data/territorios.geojson')
+run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',terr,base_gpkg,
      '-dialect','SQLITE','-sql','SELECT TERRITORIO, ST_Union(geom) AS geom FROM LIMITE_BARRIOS WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO',
      '-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
 
@@ -76,8 +85,8 @@ for cfg in CONFIGS:
     manifest=[]
     for table,geom,srid in rows:
         slug=re.sub(r'[^a-z0-9]+','-',table.lower()).strip('-')
-        gj=out/f'{slug}.geojson'
-        run(['ogr2ogr','-overwrite','-f','GeoJSON','-t_srs','EPSG:4326',gj,gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
+        gj=fresh_output(out/f'{slug}.geojson')
+        run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',gj,gpkg,table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6'])
         count=con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
         it={'table':table,'slug':slug,'geometry':geom,'source_srid':srid,'records':count,'theme':cfg['theme'],'dimension':cfg['dimension'],'sector':cfg['sector'],'geojson':f'/data/{cfg["out"]}/{slug}.geojson','gpkg':f'/data/gpkg/{cfg["file"]}','container':cfg['file']}
         manifest.append(it); all_items.append(it)
