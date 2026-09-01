@@ -1,2 +1,2 @@
-Deploy para publicar correcciones KISS validadas de herramientas y descargas.
-Commit funcional base verificado: 09ee8f0a5c8adaf1cc253eddc06205b25c930cf2
+Deploy para publicar corrección validada de Polígono y Radio del buffer.
+Commit funcional base verificado: 3c5ce1f
