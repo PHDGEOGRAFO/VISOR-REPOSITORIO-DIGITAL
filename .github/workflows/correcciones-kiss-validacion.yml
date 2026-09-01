@@ -1,0 +1,85 @@
+name: Correcciones KISS validadas
+on:
+  push:
+    paths:
+      - '.github/workflows/correcciones-kiss-validacion.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Aplicar correcciones KISS seguras
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+
+          # Unificar selección + análisis sin romper el JSX
+          s=s.replace('<div className="selectionBlock"><b>1. Selección espacial</b>', '<div className="selectionBlock"><b>1. Selección y análisis</b>')
+          old='</div><div className="analysisBlock"><b>2. Análisis sobre la selección</b><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}>'
+          new='<div className="analysisInline"><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}>'
+          s=s.replace(old,new)
+          old2='</select></label></div><div className="visualBlock"><b>3. Visualización / capas independientes</b>'
+          new2='</select></label></div></div><div className="visualBlock"><b>2. Visualización / capas independientes</b>'
+          s=s.replace(old2,new2)
+
+          # Encabezado explicativo de acciones
+          if 'downloadHeaderHelp' not in s:
+              s=s.replace('<th>Acciones</th>','<th>Acciones<small className="downloadHeaderHelp">Seleccionar = mostrar en mapa · Descargar datos = archivo disponible</small></th>',1)
+              s=s.replace('<th>ACCIONES</th>','<th>ACCIONES<small className="downloadHeaderHelp">Seleccionar = mostrar en mapa · Descargar datos = archivo disponible</small></th>',1)
+
+          # Cambiar etiqueta del botón, sin alterar la estructura condicional
+          s=s.replace('>Descargar</a>', '>Descargar datos</a>')
+          s=s.replace('>Descargar</button>', '>Descargar datos</button>')
+
+          p.write_text(s)
+          PY
+      - name: Ajustar estilos
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/globals.css')
+          s=p.read_text()
+          css='''\n.analysisInline{margin-top:9px;padding-top:8px;border-top:1px solid #c9d3df}.analysisInline label{display:block;color:#435263;font-size:10px!important;font-weight:600}.analysisInline select{display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #afbdcd;background:#fff;font-size:10px!important}.downloadHeaderHelp{display:block;margin-top:4px;font-size:8px;line-height:1.25;font-weight:400;text-transform:none;max-width:230px}\n'''
+          if '.analysisInline{' not in s:
+              s += css
+          p.write_text(s)
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Validar referencias públicas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          data=Path('public/data')
+          required=['comuna.geojson','territorios.geojson','barrios.geojson','manzanas.geojson','grifos.geojson','PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson']
+          missing=[x for x in required if not (data/x).exists()]
+          if missing:
+              raise SystemExit('Faltan archivos: '+', '.join(missing))
+          idx=Path('public/catalog/index_coberturas.json')
+          if not idx.exists():
+              raise SystemExit('Falta índice de coberturas')
+          j=json.loads(idx.read_text())
+          for item in j.get('items',[]):
+              d=item.get('download')
+              if d and d.startswith('/data/') and not (Path('public')/d.lstrip('/')).exists():
+                  raise SystemExit(f'Descarga inexistente: {d}')
+          print('Referencias de datos/descarga validadas')
+          PY
+      - name: Guardar correcciones
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Visor: unificar selección-análisis y aclarar descarga'
+          git push
