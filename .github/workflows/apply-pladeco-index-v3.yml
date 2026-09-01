@@ -1,0 +1,25 @@
+name: Aplicar INDEX PLADECO v3
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-pladeco-index-v3.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar parche
+        run: python scripts/apply-pladeco-index.py
+      - name: Validar build
+        run: |
+          npm ci
+          npx vinext build
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/santi.ts app/map-gray.css
+          git commit -m "Visor: jerarquía INDEX PLADECO y legibilidad"
+          git push
