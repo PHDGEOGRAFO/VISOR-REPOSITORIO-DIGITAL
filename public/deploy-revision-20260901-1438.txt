@@ -1,2 +1,2 @@
-Deploy para publicar corrección del selector de coberturas analizables.
-Commit funcional base verificado: 4e1777c9f0c3540f9ea03247ee184785d140cee2
+Deploy para publicar correcciones KISS validadas de herramientas y descargas.
+Commit funcional base verificado: 09ee8f0a5c8adaf1cc253eddc06205b25c930cf2
