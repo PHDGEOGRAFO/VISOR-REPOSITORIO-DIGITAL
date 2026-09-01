@@ -1,0 +1,52 @@
+name: Mejorar PDF cartografico
+on:
+  push:
+    paths:
+      - '.github/workflows/mejorar-pdf-cartografico.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Incorporar cartela PDF
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='const printPdf=()=>window.print();const props=feature?.f.properties||{},lineasOn=active.includes("lineas-prc");'
+          new='const activePrintLayers=layers.filter(l=>active.includes(l.id));const printSources=[...new Set(activePrintLayers.map(l=>l.source).filter(Boolean))];const printPdf=()=>window.print();const props=feature?.f.properties||{},lineasOn=active.includes("lineas-prc");'
+          if old not in s: raise SystemExit('No se encontro ancla printPdf')
+          s=s.replace(old,new,1)
+          anchor='<section className="map"><InteractiveMap'
+          idx=s.find(anchor)
+          if idx<0: raise SystemExit('No se encontro section map')
+          end=s.find('/>',idx)
+          if end<0: raise SystemExit('No se encontro cierre InteractiveMap')
+          end+=2
+          decor='''<div className="printMapDecor"><div className="printInstitution"><img src={`${BASE_PATH}/logo-munistgo.png`} alt="Municipalidad de Santiago"/><div><strong>Visor Territorial</strong><span>Subdirección de Planificación y Sustentabilidad · IMS</span></div></div><div className="northArrow"><b>N</b><span>▲</span></div><div className="printLegend"><b>Simbología</b>{activePrintLayers.map(l=><div key={l.id}><i style={{background:l.geometry==="Línea"?"transparent":l.color,borderColor:l.color}} className={`legend-${l.geometry.toLowerCase()}`}/><span>{l.name}</span></div>)}</div><div className="printSource"><b>Fuente de datos:</b> {printSources.join(" · ")||"Repositorio Territorial Digital"}<br/><b>Elaboración / publicación:</b> Subdirección de Planificación y Sustentabilidad · IMS</div></div>'''
+          s=s[:end]+decor+s[end:]
+          p.write_text(s,encoding='utf-8')
+
+          c=Path('app/map-gray.css')
+          css=c.read_text(encoding='utf-8')
+          css+='''\n.printMapDecor{display:none}\n@media print{.printMapDecor{display:block!important;position:absolute;inset:0;z-index:30;pointer-events:none}.printInstitution{position:absolute;left:18px;top:16px;display:flex;align-items:center;gap:10px;background:#fffffff2;border:1px solid #8d9bad;padding:8px 10px;min-width:280px}.printInstitution img{width:105px;height:42px;object-fit:contain}.printInstitution div{display:flex;flex-direction:column}.printInstitution strong{font-size:15px;color:#072e6d}.printInstitution span{font-size:9px;color:#445}.northArrow{position:absolute;right:285px;top:20px;width:48px;height:68px;background:#fffffff0;border:1px solid #8d9bad;text-align:center;padding-top:5px}.northArrow b{display:block;font-size:14px;color:#072e6d}.northArrow span{display:block;font-size:30px;line-height:34px;color:#072e6d}.printLegend{position:absolute;left:18px;bottom:62px;min-width:230px;max-width:310px;background:#fffffff2;border:1px solid #8d9bad;padding:8px 10px}.printLegend>b{display:block;color:#072e6d;font-size:11px;margin-bottom:5px}.printLegend>div{display:flex;align-items:center;gap:7px;font-size:9px;margin:3px 0}.printLegend i{display:inline-block;width:14px;height:10px;border:2px solid #555;box-sizing:border-box}.printLegend .legend-punto{border-radius:50%;width:10px;height:10px}.printLegend .legend-línea{height:0;border-width:2px 0 0 0;width:16px}.printSource{position:absolute;left:18px;right:18px;bottom:14px;background:#fffffff2;border-top:1px solid #8d9bad;padding:6px 8px;font-size:8px;color:#344;line-height:1.35}.printSource b{color:#072e6d}}\n'''
+          c.write_text(css,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/map-gray.css
+          git commit -m "Visor: cartela cartografica para PDF"
+          git push
