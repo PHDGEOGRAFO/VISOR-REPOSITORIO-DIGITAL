@@ -1,0 +1,55 @@
+name: Aplicar INDEX PLADECO v2
+on:
+  push:
+    paths: ['.github/workflows/apply-pladeco-index-v2.yml']
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar cambios
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/page.tsx'); s=p.read_text(encoding='utf-8')
+          st=s.find(' useEffect(()=>{layers.forEach'); en=s.find(' useEffect(()=>{if(analysis!=="Isócronas"',st)
+          if st>=0 and en>st:
+            b=''' useEffect(()=>{\n  layers.forEach(layer=>{\n   if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;\n   if(status[layer.id]==="cargando")return;\n   setStatus(s=>({...s,[layer.id]:"cargando"}));\n   fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then((fc:GeoCollection)=>{\n    let clean=fc;\n    if(layer.id==="lineas-prc")clean={...fc,features:fc.features.filter(f=>f.geometry.type==="LineString"||f.geometry.type==="MultiLineString")};\n    if(layer.populationJoin)clean={...clean,features:clean.features.map(f=>{const p={...f.properties},cod=String(p.COD_MZN??p.cod_mzn??"");p.COD_MZN=cod;p.n_per=population[cod]??p.n_per??p.POBLACION??null;return{...f,properties:p}})};\n    setData(d=>({...d,[layer.id]:clean}));setStatus(s=>({...s,[layer.id]:"ok"}));\n   }).catch(()=>setStatus(s=>({...s,[layer.id]:"error"})));\n  });\n },[population]);\n'''; s=s[:st]+b+s[en:]
+          marker='const thematicGroups=groups.filter(([c])=>c!=="BASE");'
+          if 'const pladecoDimensions=' not in s:
+            ins='''\nconst pladecoDimensions=[\n{id:"AMBIENTAL",label:"Dimensión Ambiental",sectors:["Áreas verdes y vegetación","Residuos, reciclaje y calidad ambiental"]},\n{id:"URBANA",label:"Dimensión Urbana",sectors:["Planificación urbana y suelo","Movilidad e infraestructura"]},\n{id:"SOCIOCULTURAL",label:"Dimensión Sociocultural",sectors:["Seguridad","Patrimonio y cultura","Turismo"]},\n{id:"ECONOMICA",label:"Dimensión Económica",sectors:["Actividad económica y comercio"]},\n{id:"INSTITUCIONAL",label:"Dimensión Institucional",sectors:["Gestión municipal y activos institucionales"]}\n] as const;\nfunction itemDimension(i:IndexItem){return (i as any).dimensionPladeco||"POR CLASIFICAR"}\nfunction itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}\n'''; s=s.replace(marker,marker+ins,1)
+          s=s.replace('type IndexItem={id:string;mapId?:string|null;tema:string;nombre:string;','type IndexItem={id:string;mapId?:string|null;tema?:string;dimensionPladeco?:string;sector?:string;codigoContenedor?:string;temaTecnico?:string;nombre:string;',1)
+          s=s.replace('const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexTheme,setIndexTheme]=useState("TODOS");','const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");',1)
+          s=re.sub(r' const indexFiltered=useMemo\(.*?\);\n const themeCounts=useMemo\(.*?\);',''' const indexFiltered=useMemo(()=>indexItems.filter(i=>(indexDimension==="TODOS"||itemDimension(i)===indexDimension)&&(indexSector==="TODOS"||itemSector(i)===indexSector)&&`${i.nombre} ${i.carpeta??""} ${i.contenedor??""} ${i.subcapa??""} ${i.geometria} ${i.estado??""} ${i.validacion??""} ${itemDimension(i)} ${itemSector(i)}`.toLowerCase().includes(indexQuery.toLowerCase())),[indexItems,indexDimension,indexSector,indexQuery]);\n const dimensionCounts=useMemo(()=>Object.fromEntries(pladecoDimensions.map(d=>[d.id,indexItems.filter(i=>itemDimension(i)===`DIMENSIÓN ${d.id}`).length])),[indexItems]);''',s,count=1,flags=re.S)
+          s=s.replace('const openTheme=(theme:string)=>{setIndexTheme(theme);setIndexQuery("");setIndexOpen(true)};','const openDimension=(dim:string)=>{setIndexDimension(dim);setIndexSector("TODOS");setIndexQuery("");setIndexOpen(true)};',1)
+          s=s.replace('onClick={()=>{setIndexTheme("TODOS");setIndexOpen(true)}}','onClick={()=>{setIndexDimension("TODOS");setIndexSector("TODOS");setIndexOpen(true)}}')
+          s=re.sub(r'<aside className="sidebar">.*?</aside>\n   <section className="map">','''<aside className="sidebar"><div className="catalogHelp"><b>Dimensiones PLADECO</b><p>Jerarquía oficial: Dimensión PLADECO → Sector / temática → Cobertura. Base Territorial es transversal y se controla directamente en el mapa.</p></div><div className="dimensionList">{pladecoDimensions.map(d=><button key={d.id} onClick={()=>openDimension(`DIMENSIÓN ${d.id}`)}><span className="dimensionCode">{d.id.slice(0,3)}</span><strong>{d.label}</strong><b>{dimensionCounts[d.id]??0}</b><small>{d.sectors.join(" · ")}</small></button>)}</div><button className="openFullIndex" onClick={()=>openDimension("TODOS")}>Abrir Índice de Coberturas</button></aside>\n   <section className="map">''',s,count=1,flags=re.S)
+          s=re.sub(r'<div className="indexFilters">.*?</div><div className="indexTableWrap"><table><thead><tr>.*?</tr></thead><tbody>','''<div className="indexFilters"><input value={indexQuery} onChange={e=>setIndexQuery(e.target.value)} placeholder="Buscar cobertura, GPKG, carpeta, estado…"/><select value={indexDimension} onChange={e=>{setIndexDimension(e.target.value);setIndexSector("TODOS")}}><option value="TODOS">Todas las dimensiones PLADECO</option>{pladecoDimensions.map(d=><option key={d.id} value={`DIMENSIÓN ${d.id}`}>{d.label}</option>)}</select><select value={indexSector} onChange={e=>setIndexSector(e.target.value)}><option value="TODOS">Todos los sectores</option>{Array.from(new Set(indexItems.filter(i=>indexDimension==="TODOS"||itemDimension(i)===indexDimension).map(itemSector))).sort().map(x=><option key={x}>{x}</option>)}</select><b>{indexFiltered.length} de {indexItems.length} coberturas</b></div><div className="indexTableWrap"><table><thead><tr><th>Dimensión PLADECO</th><th>Sector / temática</th><th>Cobertura</th><th>Geometría</th><th>Registros</th><th>Origen / contenedor</th><th>Validación</th><th>Estado visor</th><th>Acciones</th></tr></thead><tbody>''',s,count=1,flags=re.S)
+          s=re.sub(r'\{indexFiltered\.map\(i=><tr key=\{i\.id\}>.*?</tr>\)\}','''{indexFiltered.map(i=><tr key={i.id}><td><strong>{itemDimension(i).replace("DIMENSIÓN ","")}</strong></td><td><span className="sectorTag">{itemSector(i)}</span></td><td><strong>{i.nombre}</strong><small>{i.carpeta||"Repositorio visor"}</small></td><td>{i.geometria||"Pendiente"}<small>{i.crs||""}</small></td><td>{i.registros||"—"}</td><td><strong>{i.contenedor||i.carpeta||"—"}</strong><small>{i.tipoContenedor||""}</small></td><td><span className={(i.validacion||"").toUpperCase().includes("VALID")?"statusOk":"statusPending"}>{i.validacion||"PENDIENTE"}</span></td><td><span className={(i.estado||"").toUpperCase().includes("PUBLIC")?"statusOk":"statusPending"}>{i.estado||"PENDIENTE"}</span></td><td><div className="indexActions">{i.verEnMapa&&i.mapId&&<button onClick={()=>openFromIndex(i)}>Ver en mapa</button>}{i.download?<a href={`${BASE_PATH}${i.download}`} download>Descargar</a>:<span className="catalogOnly">Catálogo</span>}</div></td></tr>)}''',s,count=1,flags=re.S)
+          s=s.replace('2. BIBLIOTECA DIGITAL · catálogo maestro','3. REPOSITORIO VISOR · catálogo operativo')
+          s=s.replace('Incluye coberturas validadas, publicadas y pendientes. GDB y GeoPackage se registran a nivel de cobertura/subcapa.','Organización oficial PLADECO: Dimensión → Sector / temática → Cobertura. Cada capa de un GeoPackage se indexa individualmente.')
+          s=re.sub(r'<footer><b>Sincronización:</b>.*?</footer>','<footer><b>Fuente operativa:</b> 3. REPOSITORIO VISOR. Los GeoPackage son la fuente del mapa y de las descargas; 2. BIBLIOTECA DIGITAL permanece como fuente de trabajo/origen.</footer>',s,count=1,flags=re.S)
+          p.write_text(s,encoding='utf-8')
+          ps=Path('app/santi.ts'); t=ps.read_text(encoding='utf-8'); needle=' const q=norm(query),actions:SantiAction[]=[];const isCount=/cuant|numero|cantidad|total/.test(q);'
+          add='''\n if(/dimensiones? pladeco|cuales.*dimensiones|lista.*dimensiones/.test(q))return{summary:"Las dimensiones PLADECO del visor son Ambiental, Urbana, Sociocultural, Económica e Institucional. Base Territorial es transversal.",actions};\n if(/sectores?|tematicas?/.test(q)&&/pladeco|dimension/.test(q))return{summary:"La navegación usa Dimensión PLADECO → Sector / temática → Cobertura. Seguridad, movilidad, turismo, patrimonio, áreas verdes y residuos son sectores subordinados.",actions};'''
+          if add.strip() not in t: t=t.replace(needle,needle+add,1)
+          ps.write_text(t,encoding='utf-8')
+          pc=Path('app/map-gray.css'); c=pc.read_text(encoding='utf-8')
+          for a,b in [('body{font-size:13px!important}','body{font-size:15px!important}'),('.sidebar,.inspector{font-size:12px!important}', '.sidebar,.inspector{font-size:14px!important}'),('.municipalBrand small{font-size:10px','.municipalBrand small{font-size:11px'),('.catalogHelp p{font-size:11px!important','.catalogHelp p{font-size:12px!important'),('.dimensionList strong{font-size:11px','.dimensionList strong{font-size:12px'),('.dimensionList small{font-size:9px','.dimensionList small{font-size:10px'),('.layerControl label{font-size:11px!important','.layerControl label{font-size:12px!important'),('.analysisTools{position:absolute;right:18px;top:18px;width:270px;padding:12px!important;z-index:12;font-size:11px!important}', '.analysisTools{position:absolute;right:18px;top:18px;width:290px;padding:14px!important;z-index:12;font-size:12px!important}'),('.santiDescription{font-size:11px!important','.santiDescription{font-size:12px!important'),('.santiResponse{min-height:110px;max-height:220px','.santiResponse{min-height:150px;max-height:300px'),('.santiAsk textarea{min-height:58px','.santiAsk textarea{min-height:72px'),('.coverageIndex table{width:100%;border-collapse:collapse;font-size:10px','.coverageIndex table{width:100%;border-collapse:collapse;font-size:11px'),('.indexFilters{display:grid;grid-template-columns:1fr 230px auto;','.indexFilters{display:grid;grid-template-columns:1fr 220px 240px auto;')]: c=c.replace(a,b)
+          if '.sectorTag{' not in c: c+='\n.sectorTag{display:inline-block;padding:4px 7px;border-radius:12px;background:#eef3f9;color:var(--stgo);font-weight:700;white-space:nowrap}\n'
+          pc.write_text(c,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx vinext build
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/santi.ts app/map-gray.css
+          git commit -m "Visor: jerarquía INDEX PLADECO y legibilidad"
+          git push
