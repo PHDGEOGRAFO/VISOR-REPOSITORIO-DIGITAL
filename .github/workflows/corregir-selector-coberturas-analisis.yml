@@ -1,0 +1,43 @@
+name: Corregir selector coberturas analizables
+
+on:
+  push:
+    paths:
+      - '.github/workflows/corregir-selector-coberturas-analisis.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Corregir selector y estado inicial
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          s=s.replace('const[selected,setSelected]=useState("manzana");','const[selected,setSelected]=useState("grifos");')
+          s=s.replace('{layers.filter(l=>!l.mapTool).map(l=><option key={l.id} value={l.id}>{l.name} · {l.geometry}</option>)}','{layers.filter(l=>l.theme!=="BASE"&&!l.mapTool).map(l=><option key={l.id} value={l.id}>{l.name} · {l.geometry}</option>)}')
+          old='<label>Cobertura activa para consulta y análisis<select value={selected} onChange={e=>{const id=e.target.value;ensureActive(id);setSelected(id);setFeature(null);setSpatialSelection(polygon?featuresInPolygon(data[id],polygon):null)}}>'
+          new='<label>Cobertura activa para consulta y análisis<select value={selected} onChange={e=>{const id=e.target.value;ensureActive(id);setSelected(id);setFeature(null);setMultiSelected([]);setSelectionMode("Puntos");setViz("simple");setSpatialSelection(polygon?featuresInPolygon(data[id],polygon):null)}}>'
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          git diff --cached --quiet || git commit -m 'Visor: limitar selector a coberturas analizables'
+          git push
