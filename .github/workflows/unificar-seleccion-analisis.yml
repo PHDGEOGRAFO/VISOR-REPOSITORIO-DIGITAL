@@ -1,0 +1,62 @@
+name: Unificar selección y análisis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/unificar-seleccion-analisis.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Unificar bloques de herramientas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          old='<div className="selectionBlock"><b>1. Selección espacial</b>'
+          new='<div className="selectionBlock"><b>1. Selección y análisis</b>'
+          if old not in s:
+              raise SystemExit('No se encontró título selección')
+          s=s.replace(old,new,1)
+          old2='</div><div className="analysisBlock"><b>2. Análisis sobre la selección</b><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}>'
+          new2='<div className="analysisInline"><label>Tipo de análisis<select value={analysis} onChange={e=>setAnalysis(e.target.value)}>'
+          if old2 not in s:
+              raise SystemExit('No se encontró separación análisis')
+          s=s.replace(old2,new2,1)
+          old3='</select></label></div><div className="visualBlock"><b>3. Visualización / capas independientes</b>'
+          new3='</select></label></div></div><div className="visualBlock"><b>2. Visualización / capas independientes</b>'
+          if old3 not in s:
+              raise SystemExit('No se encontró cierre análisis/visualización')
+          s=s.replace(old3,new3,1)
+          p.write_text(s)
+          PY
+      - name: Ajustar CSS
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/globals.css')
+          s=p.read_text()
+          s += '\n.analysisInline{margin-top:9px;padding-top:8px;border-top:1px solid #c9d3df}.analysisInline label{display:block;color:#435263;font-size:10px!important;font-weight:600}.analysisInline select{display:block;width:100%;margin-top:4px;padding:8px;border:1px solid #afbdcd;background:#fff;font-size:10px!important}\n'
+          p.write_text(s)
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css
+          git commit -m 'Visor: unificar selección y análisis' || exit 0
+          git push
