@@ -1,0 +1,46 @@
+name: Corregir selección de puntos
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-point-selection.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Corregir interacción de puntos
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='const common={key:i,onClick:(e:any)=>{e.stopPropagation();onFeature(f,id)}};if(f.geometry.type==="Point"){if(hideSelectedPoints)return null;const[x,y]=project(f.geometry.coordinates,zoom,cw.x,cw.y);return <circle {...common}'
+          new='const common={key:i,onPointerDown:(e:any)=>{e.stopPropagation()},onClick:(e:any)=>{e.stopPropagation();onFeature(f,id)}};if(f.geometry.type==="Point"){const[x,y]=project(f.geometry.coordinates,zoom,cw.x,cw.y);if(hideSelectedPoints)return <circle {...common} cx={x} cy={y} r={Math.max(10,s.pointRadius??5)} fill="transparent" stroke="transparent" pointerEvents="all"><title>{featureName(f)}</title></circle>;return <circle {...common}'
+          if old not in s:
+              raise SystemExit('No se encontró bloque de interacción de puntos')
+          s=s.replace(old,new,1)
+          old2='{selectedFeatures.filter(f=>f.geometry.type==="Point").map((f,i)=>{const[x,y]=project(f.geometry.coordinates,zoom,cw.x,cw.y);return <circle key={`sel${i}`} cx={x} cy={y} r="8" fill="none" stroke="#ffbd00" strokeWidth="3"/>})}'
+          new2=old2+'\n   {selectedFeature?.geometry.type==="Point"&&(()=>{const[x,y]=project(selectedFeature.geometry.coordinates,zoom,cw.x,cw.y);return <circle cx={x} cy={y} r="9" fill="none" stroke="#ffbd00" strokeWidth="3" pointerEvents="none"/>})()}'
+          if old2 not in s:
+              raise SystemExit('No se encontró bloque de resaltado')
+          s=s.replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/InteractiveMap.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Visor: habilitar clic en uno o varios puntos'
+          git push
