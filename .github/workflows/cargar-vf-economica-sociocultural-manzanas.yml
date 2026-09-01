@@ -24,7 +24,9 @@ jobs:
           sudo apt-get install -y gdal-bin sqlite3
           python -m pip install --upgrade pip gdown
       - name: Cargar dimensiones VF y corregir manzanas
-        run: python scripts/load_vf_dimensions.py
+        run: |
+          sed -i 's/FROM LIMITE_BARRIOS WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/FROM LIMITE_MANZANA_CENSAL WHERE TERRITORIO IS NOT NULL GROUP BY TERRITORIO/' scripts/load_vf_dimensions.py
+          python scripts/load_vf_dimensions.py
       - name: Validar estructura, datos y build
         run: |
           test -f public/data/gpkg/00_BASE_TERRITORIAL_VF.gpkg
@@ -50,7 +52,9 @@ jobs:
           bar=json.load(open('public/data/barrios.geojson',encoding='utf-8'))
           names={str(f.get('properties',{}).get('BARRIO','')).upper() for f in bar['features']}
           assert {'REPUBLICA','RONDIZZONI',"PARQUE O'HIGGINS"}.issubset(names)
-          print('Validación VF OK: ECO 22, SOC 25, manzanas 1711, n_per 432081, nombres oficiales OK')
+          ter=json.load(open('public/data/territorios.geojson',encoding='utf-8'))
+          assert len(ter['features'])==6, len(ter['features'])
+          print('Validación VF OK: ECO 22, SOC 25, manzanas 1711, n_per 432081, 6 territorios y nombres oficiales OK')
           PY
           npm ci
           npx next build --webpack
