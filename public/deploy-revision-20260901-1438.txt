@@ -1,3 +1,3 @@
-Deploy para publicar Base Territorial VF + Dimensión Sociocultural VF + Dimensión Económica VF.
-Commit funcional base verificado: 18702bcae6f87a4afdfc4530e4c8d7a74ce910ac
-Validaciones: 22 ECO + 25 SOC + 27 barrios + 6 territorios + 1711 manzanas + n_per 432081 + 5019 calles.
+Deploy para publicar Base Territorial VF + Dimensión Ambiental VF + Dimensión Sociocultural VF + Dimensión Económica VF.
+Commit funcional Ambiental verificado: 89d7f13
+Validaciones: 44 AMB + 22 ECO + 25 SOC + 27 barrios + 6 territorios + 1711 manzanas + n_per 432081 + 5019 calles.
