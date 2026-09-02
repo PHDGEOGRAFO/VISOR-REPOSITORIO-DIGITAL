@@ -13,6 +13,7 @@ REMOVE={
 'vf-amb-pol-area-silencio':'AMB_POL_AREA_SILENCIO',
 'vf-amb-pol-av-ine-siedu17':'AMB_POL_AV_INE_SIEDU17',
 'vf-amb-pol-av-prc84':'AMB_POL_AV_PRC84',
+'vf-amb-pol-estratos-bajos-pf':'AMB_POL_ESTRATOS_BAJOS_PF',
 'vf-amb-pol-estratos-medios-pf':'AMB_POL_ESTRATOS_MEDIOS_PF',
 'vf-amb-pol-fuentes-agua-parque-forestal':'AMB_POL_FUENTES_AGUA_PARQUE_FORESTAL',
 'vf-amb-pol-parque-siedu-ine17':'AMB_POL_PARQUE_SIEDU_INE17',
@@ -20,6 +21,8 @@ REMOVE={
 'vf-amb-pol-plazas-siedu-ine17':'AMB_POL_PLAZAS_SIEDU_INE17',
 'vf-amb-pol-zonas-manejo-parque-forestal':'AMB_POL_ZONAS_MANEJO_PARQUE_FORESTAL',
 'vf-amb-pto-arbolado-catastro-2013':'AMB_PTO_ARBOLADO_CATASTRO_2013',
+'vf-amb-pto-arbolado-centro-norte-2019':'AMB_PTO_ARBOLADO_CENTRO_NORTE_2019',
+'vf-amb-pto-arbolado-parque-forestal':'AMB_PTO_ARBOLADO_PARQUE_FORESTAL',
 'vf-amb-pto-arbolado-quinta-normal-2018':'AMB_PTO_ARBOLADO_QUINTA_NORMAL_2018',
 'vf-amb-pto-arbolado-suroriente-2019':'AMB_PTO_ARBOLADO_SURORIENTE_2019',
 'vf-amb-pto-arbolado-surponiente-2019':'AMB_PTO_ARBOLADO_SURPONIENTE_2019',
@@ -56,7 +59,7 @@ for item in cat.get('items',[]):
 cat['items']=kept
 cat['total']=len(kept)
 cat['generatedAt']=str(date.today())
-cat['observacionesControl']='Índice sincronizado con capas operativas del visor. Se eliminaron 18 coberturas ambientales por instrucción de depuración.'
+cat['observacionesControl']=f'Índice sincronizado con capas operativas del visor. Se eliminaron {len(REMOVE)} coberturas ambientales por instrucción de depuración.'
 CAT.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
 # 3) Depurar referencias visuales y estilos del visor.
@@ -77,13 +80,11 @@ s=s.replace('{selectedLayer.geometry==="Punto"?"Esta cobertura es la referencia 
 old='const toggleFromIndex=(item:IndexItem)=>{const id=item.mapId||item.id;if(!layers.some(l=>l.id===id))return;setActive(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);setSelected(id)};'
 new='const toggleFromIndex=(item:IndexItem)=>{const id=item.mapId||item.id;if(!layers.some(l=>l.id===id))return;setActive(a=>{const turningOff=a.includes(id),next=turningOff?a.filter(x=>x!==id):[...a,id];if(turningOff&&selected===id){const alt=layers.find(l=>next.includes(l.id)&&l.theme!=="BASE"&&!l.mapTool);setSelected(alt?.id??"")}else if(!turningOff)setSelected(id);return next})};'
 s=s.replace(old,new)
-# Evitar que seleccionar puntos opere sin cobertura elegida.
 s=s.replace('disabled={selectedLayer.geometry!=="Punto"}','disabled={!selected||selectedLayer.geometry!=="Punto"}')
-# Texto de ayuda del bloque izquierdo.
 s=s.replace('Escriba una variable o tema. Puede activar varias coberturas sin entrar por dimensión.','Escriba una variable o tema. Las coberturas que active aquí quedan disponibles inmediatamente en Herramientas del mapa.')
 PAGE.write_text(s,encoding='utf-8')
 
-# 5) Validaciones mínimas.
+# 5) Validaciones estrictas.
 text=PAGE.read_text(encoding='utf-8')
 for mid in REMOVE:
     if mid in text: raise SystemExit(f'Referencia residual en page.tsx: {mid}')
@@ -91,5 +92,5 @@ for mid in REMOVE:
     if any((x.get('mapId') or x.get('id'))==mid for x in cat['items']): raise SystemExit(f'Referencia residual catálogo: {mid}')
 if 'activeToolLayers.map' not in text: raise SystemExit('No quedó vínculo activeToolLayers')
 if cat['total'] != len(cat['items']): raise SystemExit('Total de catálogo inconsistente')
-print(f'OK catálogo: {cat["total"]} coberturas; eliminadas: {len(removed_items)}')
+print(f'OK catálogo: {cat["total"]} coberturas; exclusiones configuradas: {len(REMOVE)}; eliminadas en esta ejecución: {len(removed_items)}')
 print('OK vínculo izquierda -> Herramientas del mapa')
