@@ -46,7 +46,7 @@ function publicVisualizationFields(layer:Layer,fc:GeoCollection){const f=fc.feat
 
 const layers:Layer[]=[
  {id:"comuna",name:"Límite comunal",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/comuna.geojson`,color:"#073879",description:"Límite oficial de la comuna de Santiago.",source:"00_BASE_TERRITORIAL_VF.gpkg",activeDefault:true},
- {id:"territorio",name:"Territorios",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/territorios.geojson`,color:"#2877a6",description:"Territorios de planificación de la comuna.",source:"00_BASE_TERRITORIAL_VF.gpkg"},
+ {id:"territorio",name:"Territorios",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/urbana/limite-territorios-pladeco.geojson`,color:"#2877a6",description:"Territorios de planificación de la comuna.",source:"00_BASE_TERRITORIAL_VF.gpkg"},
  {id:"barrio",name:"Barrios",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/barrios.geojson`,color:"#4a87b8",description:"Barrios oficiales cargados en el repositorio territorial.",source:"00_BASE_TERRITORIAL_VF.gpkg"},
  {id:"manzana",name:"Manzanas · Censo 2024",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/manzanas.geojson`,color:"#71808a",description:"Base censal de manzanas. COD_MZN es la llave y n_per la población para cálculos.",source:"00_BASE_TERRITORIAL_VF.gpkg / Censo 2024"},
  {id:"lineas-prc",name:"Líneas Oficiales PRC",theme:"URB",geometry:"Línea",url:`${BASE_PATH}/data/prc_expropiacion_lineas.geojson`,color:"#d5523f",description:"Líneas oficiales / expropiación PRC. Se muestran exclusivamente como líneas, sin geometrías poligonales.",source:"PRC Santiago",mapTool:true},
@@ -289,12 +289,15 @@ export default function Home(){
  useEffect(()=>{fetch(`${BASE_PATH}/catalog/index_coberturas.json?ts=${Date.now()}`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).then(j=>setIndexItems(j.items||[])).catch(()=>setIndexItems([]))},[]);
  useEffect(()=>{
   layers.forEach(layer=>{
-   const shouldLoad=layer.theme==="BASE"||layer.activeDefault||active.includes(layer.id)||layer.id===selected;
+   const shouldLoad=layer.activeDefault||active.includes(layer.id)||layer.id===selected;
    if(!shouldLoad)return;
    if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;
    if(status[layer.id]==="cargando")return;
    setStatus(s=>({...s,[layer.id]:"cargando"}));
-   fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then((fc:GeoCollection)=>{
+   const layerFetch:Promise<GeoCollection>=layer.id==="manzana"
+   ?Promise.all(["CENTRO_ORIENTE","CENTRO_PONIENTE","NORORIENTE","NORPONIENTE","SURORIENTE","SURPONIENTE"].map(n=>fetch(`${BASE_PATH}/data/manzanas/${n}.geojson`).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}))).then(parts=>({type:"FeatureCollection",features:parts.flatMap((x:GeoCollection)=>x.features)} as GeoCollection))
+   :fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});
+   layerFetch.then((fc:GeoCollection)=>{
     let clean=fc;
     if(layer.id==="lineas-prc")clean={...fc,features:fc.features.filter(f=>f.geometry.type==="LineString"||f.geometry.type==="MultiLineString")};
     if(layer.populationJoin)clean={...clean,features:clean.features.map(f=>{const p={...f.properties},cod=String(p.COD_MZN??p.cod_mzn??"");p.COD_MZN=cod;p.n_per=population[cod]??p.n_per??p.POBLACION??null;return{...f,properties:p}})};
