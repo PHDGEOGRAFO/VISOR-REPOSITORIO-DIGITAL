@@ -1,0 +1,50 @@
+name: Fix SantIA barrio con capa seleccionada
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-santi-barrio-selected-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Limitar cruce de barrio a capa seleccionada
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='function resolveNamedScope(query:string,data:Record<string,GeoCollection>){const q=normText(query),defs=[{id:"territorio",level:"territorio",keys:["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]},{id:"barrio",level:"barrio",keys:["BARRIO","NOM_BARRIO","NOMBRE"]},{id:"manzana",level:"manzana",keys:["COD_MZN","cod_mzn"]}];for(const d of defs)for(const f of data[d.id]?.features??[]){if(f.geometry.type!=="Polygon"&&f.geometry.type!=="MultiPolygon")continue;const name=featureLabel(f,d.keys);if(name!=="Sin nombre"&&q.includes(normText(name))){const counts:Record<string,number>={};for(const l of layers)counts[l.id]=(data[l.id]?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).length;const nper=(data.manzana?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).reduce((z,x)=>z+(Number(x.properties.n_per)||0),0);return{level:d.level,name,counts,nper}}}return null}'
+          new='function resolveNamedScope(query:string,data:Record<string,GeoCollection>,targetLayerId?:string){const q=normText(query),defs=[{id:"territorio",level:"territorio",keys:["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]},{id:"barrio",level:"barrio",keys:["BARRIO","NOM_BARRIO","NOMBRE"]},{id:"manzana",level:"manzana",keys:["COD_MZN","cod_mzn"]}];for(const d of defs)for(const f of data[d.id]?.features??[]){if(f.geometry.type!=="Polygon"&&f.geometry.type!=="MultiPolygon")continue;const name=featureLabel(f,d.keys);if(name!=="Sin nombre"&&q.includes(normText(name))){const counts:Record<string,number>={};if(targetLayerId)counts[targetLayerId]=(data[targetLayerId]?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).length;const wantsPopulation=/poblacion|n_per|personas/.test(q);const nper=wantsPopulation?(data.manzana?.features??[]).filter(x=>intersectsPolygon(x.geometry,f.geometry as any)).reduce((z,x)=>z+(Number(x.properties.n_per)||0),0):0;return{level:d.level,name,counts,nper}}}return null}'
+          if old not in s:
+              raise SystemExit('No se encontro resolveNamedScope esperado')
+          s=s.replace(old,new)
+          old2='const askSanti=()=>{const namedScope=resolveNamedScope(santiQuery,data);const r=runSanti(santiQuery,{active,selectedId:selected,selectedCount:selectedData.features.length,counts,manzanaPopulationSum,polygonResults,barrioNames:uniqueNames(data.barrio,["NOM_BARRIO","BARRIO","NOMBRE"]),territorioNames:uniqueNames(data.territorio,["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]),breakdowns,catalogCount:indexItems.length,namedScope,layerNames:Object.fromEntries(layers.map(l=>[l.id,l.name]))});'
+          new2='const askSanti=()=>{const qn=normText(santiQuery);if(/barrio|barrios/.test(qn)&&!data.barrio){ensureActive("barrio");setSantiReply("Cargando límites de barrios para realizar el cruce espacial. Vuelva a consultar en un momento.");return}if(/territorio|territorios/.test(qn)&&!data.territorio){ensureActive("territorio");setSantiReply("Cargando límites territoriales para realizar el cruce espacial. Vuelva a consultar en un momento.");return}const namedScope=resolveNamedScope(santiQuery,data,selected||undefined);const r=runSanti(santiQuery,{active,selectedId:selected,selectedCount:selectedData.features.length,counts,manzanaPopulationSum,polygonResults,barrioNames:uniqueNames(data.barrio,["NOM_BARRIO","BARRIO","NOMBRE"]),territorioNames:uniqueNames(data.territorio,["SECTORES_T","NOM_TERR","TERRITORIO","NOMBRE"]),breakdowns,catalogCount:indexItems.length,namedScope,layerNames:Object.fromEntries(layers.map(l=>[l.id,l.name]))});'
+          if old2 not in s:
+              raise SystemExit('No se encontro askSanti esperado')
+          s=s.replace(old2,new2)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar correccion
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios pendientes'
+            exit 0
+          fi
+          git commit -m 'SantIA: cruzar barrio solo con capa seleccionada'
+          git push
