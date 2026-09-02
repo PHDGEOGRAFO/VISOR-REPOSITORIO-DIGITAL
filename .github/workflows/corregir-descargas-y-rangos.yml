@@ -32,7 +32,7 @@ jobs:
       - name: Descargar carpeta VF
         run: |
           rm -rf /tmp/vf && mkdir -p /tmp/vf
-          gdown --folder 'https://drive.google.com/drive/folders/1BEu1Vy6u8hrmu6r2v5hRE6TKupiaDbP7' -O /tmp/vf --remaining-ok
+          gdown --folder 'https://drive.google.com/drive/folders/1BEu1Vy6u8hrmu6r2v5hRE6TKupiaDbP7' -O /tmp/vf
           echo '=== VF DISPONIBLES ==='
           find /tmp/vf -maxdepth 3 -type f -printf '%f\n' | sort
       - name: Integrar dimensiones faltantes si existen
