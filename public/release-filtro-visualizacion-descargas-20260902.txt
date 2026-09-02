@@ -1,0 +1,1 @@
+Publicación 2026-09-02: filtro de atributos para visualización y desagregación; descargas GeoJSON/GPKG con autorización genérica.
