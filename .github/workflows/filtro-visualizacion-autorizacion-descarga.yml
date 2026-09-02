@@ -1,0 +1,100 @@
+name: Filtro visualización y autorización descarga
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/filtro-visualizacion-autorizacion-descarga.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Aplicar reglas de visualización y descarga
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+
+          anchor='function gpkgDownload(i:IndexItem){const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}'
+          helpers='''function gpkgDownload(i:IndexItem){const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}\n\nconst PUBLIC_FIELD_HINTS=["direccion","domicilio","calle","ubicacion","address","nombre","nom","tipo","tipologia","categoria","clase","subtipo","sector","rubro","actividad","uso","destino","estado","condicion","modalidad","especie","grupo","tramo","ruta","servicio","equipamiento","recinto","barrio","territorio","comuna","zona","codigo","descripcion"];\nconst SENSITIVE_FIELD_HINTS=["rut","run","email","correo","mail","telefono","fono","celular","contacto","responsable","encargado","propietario","titular","dueno","dueño","apellido","fecha_nac","nacimiento","clave","password","contrasena","contraseña"];\nfunction normFieldName(v:string){return v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g,"_")}\nfunction visualizationException(layer:Layer){const t=normFieldName(`${layer.id} ${layer.name} ${layer.source}`);return layer.id==="manzana"||t.includes("manzana_censo")||t.includes("sii")}\nfunction sensitiveField(k:string){const n=normFieldName(k);return SENSITIVE_FIELD_HINTS.some(x=>n.includes(normFieldName(x)))}\nfunction descriptorField(k:string){const n=normFieldName(k);return PUBLIC_FIELD_HINTS.some(x=>n===x||n.startsWith(`${x}_`)||n.endsWith(`_${x}`)||n.includes(`_${x}_`))}\nfunction publicVisualizationFields(layer:Layer,fc:GeoCollection){const f=fc.features[0];if(!f)return[];const keys=Object.keys(f.properties||{});if(visualizationException(layer))return keys;const safe=keys.filter(k=>!sensitiveField(k));const preferred=safe.filter(descriptorField);return (preferred.length?preferred:safe.slice(0,6)).slice(0,12)}'''
+          if anchor not in s:
+              raise SystemExit('No se encontró gpkgDownload')
+          s=s.replace(anchor,helpers,1)
+
+          old='const disaggregateFields=useMemo(()=>{const f=selectedData.features[0];if(!f)return[];return Object.keys(f.properties||{}).filter(k=>{const vals=selectedData.features.slice(0,500).map(x=>x.properties?.[k]).filter(v=>v!=null&&String(v).trim()!=="");const uniq=new Set(vals.map(v=>String(v)));return vals.length>0&&uniq.size>1&&uniq.size<=50}).sort()},[selectedData]);'
+          new='const visualizationFields=useMemo(()=>publicVisualizationFields(selectedLayer,selectedData),[selectedLayer.id,selectedData]);\n const disaggregateFields=useMemo(()=>visualizationFields.filter(k=>{const vals=selectedData.features.slice(0,500).map(x=>x.properties?.[k]).filter(v=>v!=null&&String(v).trim()!=="");const uniq=new Set(vals.map(v=>String(v)));return vals.length>0&&uniq.size>1&&uniq.size<=50}).sort(),[selectedData,visualizationFields]);'
+          if old not in s:
+              raise SystemExit('No se encontró disaggregateFields')
+          s=s.replace(old,new,1)
+
+          old='const tableFields=useMemo(()=>selectedData.features[0]?Object.keys(selectedData.features[0].properties).slice(0,10):[],[selectedData]);'
+          new='const tableFields=useMemo(()=>visualizationFields.slice(0,10),[visualizationFields]);'
+          if old not in s:
+              raise SystemExit('No se encontró tableFields')
+          s=s.replace(old,new,1)
+
+          old='const openDimension=(dim:string)=>{setIndexDimension(dim);setIndexSector("TODOS");setIndexQuery("");setIndexOpen(true)};const activePrintLayers=layers.filter(l=>active.includes(l.id));const printSources=[...new Set(activePrintLayers.map(l=>l.source).filter(Boolean))];const printPdf=()=>window.print();const props=feature?.f.properties||{},lineasOn=active.includes("lineas-prc");'
+          new='''const openDimension=(dim:string)=>{setIndexDimension(dim);setIndexSector("TODOS");setIndexQuery("");setIndexOpen(true)};const activePrintLayers=layers.filter(l=>active.includes(l.id));const printSources=[...new Set(activePrintLayers.map(l=>l.source).filter(Boolean))];const printPdf=()=>window.print();const props=feature?.f.properties||{},visibleProps=Object.fromEntries(Object.entries(props).filter(([k])=>visualizationException(selectedLayer)||visualizationFields.includes(k))),lineasOn=active.includes("lineas-prc");\n const requestDownload=(path:string,label:string)=>{const key=window.prompt(`Clave de autorización para descargar ${label}:`);if(key===null)return;if(key.trim().toLowerCase()!=="oficina"){window.alert("Clave incorrecta. Descarga no autorizada.");return}const a=document.createElement("a");a.href=`${BASE_PATH}${path}`;a.download="";document.body.appendChild(a);a.click();a.remove()};'''
+          if old not in s:
+              raise SystemExit('No se encontró bloque props/print')
+          s=s.replace(old,new,1)
+
+          old='{feature&&<div className="featureDetails"><p className="kicker">ELEMENTO CONSULTADO</p>{Object.entries(props).slice(0,12).map(([k,v])=><p key={k}><strong>{k}</strong><span>{String(v??"Sin dato")}</span></p>)}</div>}'
+          new='{feature&&<div className="featureDetails"><p className="kicker">ELEMENTO CONSULTADO</p>{Object.entries(visibleProps).slice(0,12).map(([k,v])=><p key={k}><strong>{k}</strong><span>{String(v??"Sin dato")}</span></p>)}{Object.keys(visibleProps).length===0&&<p><span>Sin atributos públicos adicionales para esta cobertura.</span></p>}</div>}'
+          if old not in s:
+              raise SystemExit('No se encontró featureDetails')
+          s=s.replace(old,new,1)
+
+          old='<small>Lee los campos de la cobertura activa. Al elegir uno, el mapa diferencia sus categorías y el plano incorpora la leyenda.</small>'
+          new='<small>Solo se ofrecen campos descriptivos no sensibles (dirección, nombre, tipo/tipología u otro diferenciador seguro). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.</small>'
+          if old not in s:
+              raise SystemExit('No se encontró ayuda de desagregación')
+          s=s.replace(old,new,1)
+
+          old='{i.download?<a href={`${BASE_PATH}${i.download}`} download>GeoJSON</a>:null}{gpkgDownload(i)&&<a href={`${BASE_PATH}${gpkgDownload(i)}`} download>GeoPackage</a>}'
+          new='{i.download?<button className="downloadAction" onClick={()=>requestDownload(i.download,"GeoJSON")}>GeoJSON</button>:null}{gpkgDownload(i)&&<button className="downloadAction" onClick={()=>requestDownload(gpkgDownload(i),"GeoPackage")}>GeoPackage</button>}'
+          if old not in s:
+              raise SystemExit('No se encontraron enlaces de descarga')
+          s=s.replace(old,new,1)
+
+          old='<small className="downloadHeaderHelp">Seleccionar = mostrar en mapa · Descargar datos = archivo disponible</small>'
+          new='<small className="downloadHeaderHelp">Seleccionar = mostrar en mapa · Descargas GeoJSON/GPKG requieren clave de autorización</small>'
+          if old in s: s=s.replace(old,new,1)
+
+          p.write_text(s)
+          PY
+      - name: Pruebas de reglas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('app/page.tsx').read_text()
+          checks={
+            'clave oficina':'!=="oficina"' in s,
+            'filtro sensible':'SENSITIVE_FIELD_HINTS' in s,
+            'excepcion manzana':'layer.id==="manzana"' in s,
+            'excepcion SII':'t.includes("sii")' in s,
+            'descarga protegida':'requestDownload(i.download,"GeoJSON")' in s and 'requestDownload(gpkgDownload(i),"GeoPackage")' in s,
+            'tabla filtrada':'visualizationFields.slice(0,10)' in s,
+            'popup filtrado':'Object.entries(visibleProps)' in s,
+          }
+          print(checks)
+          assert all(checks.values()),checks
+          PY
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          git commit -m 'Visor: filtrar atributos y proteger descargas' || exit 0
+          git push
