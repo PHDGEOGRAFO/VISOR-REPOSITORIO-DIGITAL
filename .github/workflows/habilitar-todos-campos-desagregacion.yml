@@ -51,3 +51,4 @@ jobs:
           fi
           git commit -m 'Visor: habilitar todos los campos no sensibles para desagregacion'
           git push
+# trigger 2026-09-02
