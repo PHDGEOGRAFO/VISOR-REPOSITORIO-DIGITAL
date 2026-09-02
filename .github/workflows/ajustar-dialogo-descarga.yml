@@ -1,0 +1,58 @@
+name: Ajustar dialogo descarga
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ajustar-dialogo-descarga.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  ajustar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Reemplazar prompt nativo por dialogo propio
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text()
+          old='const[modal,setModal]=useState<"table"|"meta"|"report"|"help"|null>(null);'
+          new=old+'const[downloadRequest,setDownloadRequest]=useState<{path:string;label:string}|null>(null);const[downloadKey,setDownloadKey]=useState("");const[downloadError,setDownloadError]=useState("");'
+          if 'downloadRequest,setDownloadRequest' not in s:
+              s=s.replace(old,new,1)
+          oldfn='const requestDownload=(path:string,label:string)=>{const key=window.prompt(`Clave de autorización para descargar ${label}:`);if(key===null)return;if(key.trim().toLowerCase()!=="oficina"){window.alert("Clave incorrecta. Descarga no autorizada.");return}const a=document.createElement("a");a.href=`${BASE_PATH}${path}`;a.download="";document.body.appendChild(a);a.click();a.remove()};'
+          newfn='const requestDownload=(path:string,label:string)=>{setDownloadRequest({path,label});setDownloadKey("");setDownloadError("")};const confirmDownload=()=>{if(!downloadRequest)return;if(downloadKey.trim().toLowerCase()!=="oficina"){setDownloadError("Clave incorrecta. Descarga no autorizada.");return}const a=document.createElement("a");a.href=`${BASE_PATH}${downloadRequest.path}`;a.download="";document.body.appendChild(a);a.click();a.remove();setDownloadRequest(null);setDownloadKey("");setDownloadError("")};'
+          if oldfn not in s:
+              raise SystemExit('No se encontró requestDownload esperado')
+          s=s.replace(oldfn,newfn,1)
+          marker='  {modal&&<div className="indexBackdrop"'
+          dialog='''  {downloadRequest&&<div className="downloadAuthBackdrop" onClick={()=>setDownloadRequest(null)}><section className="downloadAuthDialog" onClick={e=>e.stopPropagation()}><p>Clave de autorización para descarga de {downloadRequest.label}:</p><input autoFocus type="password" value={downloadKey} onChange={e=>{setDownloadKey(e.target.value);setDownloadError("")}} onKeyDown={e=>{if(e.key==="Enter")confirmDownload()}} aria-label={`Clave de autorización para descarga de ${downloadRequest.label}`}/>{downloadError&&<small className="downloadAuthError">{downloadError}</small>}<div><button onClick={()=>setDownloadRequest(null)}>Cancelar</button><button className="primary" onClick={confirmDownload}>Aceptar</button></div></section></div>}\n'''
+          if 'downloadAuthBackdrop' not in s:
+              s=s.replace(marker,dialog+marker,1)
+          p.write_text(s)
+          css=Path('app/globals.css')
+          c=css.read_text()
+          add='''\n.downloadAuthBackdrop{position:fixed;inset:0;z-index:120;background:#102c2766;display:grid;place-items:center;padding:20px}.downloadAuthDialog{width:min(460px,92vw);background:#fffefa;border:1px solid var(--line);box-shadow:0 18px 50px #0005;padding:20px}.downloadAuthDialog p{margin:0 0 12px;font-size:14px;color:var(--ink)}.downloadAuthDialog input{width:100%;padding:11px 12px;border:2px solid #315fd4;border-radius:8px;background:#fff;font-size:15px;outline:none}.downloadAuthDialog>div{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.downloadAuthDialog button{border:1px solid var(--line);background:#eef2f7;padding:9px 16px;border-radius:20px}.downloadAuthDialog button.primary{background:#315fd4;color:#fff;border-color:#315fd4;margin-top:0}.downloadAuthError{display:block;margin-top:8px;color:#a63d32;font-size:11px}\n'''
+          if '.downloadAuthBackdrop' not in c:
+              css.write_text(c+add)
+          PY
+      - name: Probar build
+        run: |
+          npm ci
+          npx next build --webpack
+          grep -q 'downloadAuthBackdrop' app/page.tsx
+          ! grep -q 'window.prompt' app/page.tsx
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css
+          git commit -m 'Visor: usar dialogo propio para clave de descarga'
+          git push
