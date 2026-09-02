@@ -17,73 +17,51 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Corregir desagregacion y descargas
         run: |
           python - <<'PY'
           from pathlib import Path
-          import json, re
-
+          import json
           p=Path('app/page.tsx')
           s=p.read_text(encoding='utf-8')
-
           old='function gpkgDownload(i:IndexItem){const c=String(i.contenedor||"");return c.endsWith("_VF.gpkg")?`/data/gpkg/${c}`:""}'
           new='''function gpkgDownload(i:IndexItem){\n const c=String(i.contenedor||"");\n if(c.toLowerCase().endsWith("_vf.gpkg"))return `/data/gpkg/${c}`;\n const d=normFieldName(`${itemDimension(i)} ${i.tema||""} ${i.carpeta||""}`);\n if(d.includes("ambiental")||d.includes("amb"))return "/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg";\n if(d.includes("sociocultural")||d.includes("soc"))return "/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg";\n if(d.includes("economica")||d.includes("eco"))return "/data/gpkg/04_DIM_ECONOMICA_VF.gpkg";\n return ""\n}'''
-          if old not in s:
-              raise SystemExit('No se encontró gpkgDownload esperado')
-          s=s.replace(old,new,1)
-
+          if old in s:s=s.replace(old,new,1)
+          elif 'function gpkgDownload(i:IndexItem)' not in s:raise SystemExit('No existe gpkgDownload')
           old_hints='const PUBLIC_FIELD_HINTS=["direccion","domicilio","calle","ubicacion","address","nombre","nom","tipo","tipologia","categoria","clase","subtipo","sector","rubro","actividad","uso","destino","estado","condicion","modalidad","especie","grupo","tramo","ruta","servicio","equipamiento","recinto","barrio","territorio","comuna","zona","codigo","descripcion"];'
           new_hints='const PUBLIC_FIELD_HINTS=["direccion","domicilio","calle","ubicacion","address","nombre","nom","tipo","tipologia","categoria","clase","subtipo","sector","rango","range","tramo","nivel","estrato","quintil","decil","percentil","segmento","grupo","agrp","agrupacion","rubro","actividad","uso","destino","estado","condicion","modalidad","especie","ruta","servicio","equipamiento","recinto","barrio","territorio","comuna","zona","codigo","descripcion"];'
-          if old_hints not in s:
-              raise SystemExit('No se encontró PUBLIC_FIELD_HINTS esperado')
-          s=s.replace(old_hints,new_hints,1)
-
-          # Texto explicativo coherente con la nueva regla.
-          s=s.replace('Solo se ofrecen campos descriptivos no sensibles (dirección, nombre, tipo/tipología u otro diferenciador seguro). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.',
-                      'Solo se ofrecen campos descriptivos no sensibles: dirección, nombre, tipo/tipología, rango o equivalentes (grupo, sector, tramo, nivel, estrato, quintil, decil, segmento). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.')
-
+          if old_hints in s:s=s.replace(old_hints,new_hints,1)
+          elif '"rango"' not in s:raise SystemExit('No se pudo ampliar PUBLIC_FIELD_HINTS')
+          s=s.replace('Solo se ofrecen campos descriptivos no sensibles (dirección, nombre, tipo/tipología u otro diferenciador seguro). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.','Solo se ofrecen campos descriptivos no sensibles: dirección, nombre, tipo/tipología, rango o equivalentes (grupo, sector, tramo, nivel, estrato, quintil, decil, segmento). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.')
           p.write_text(s,encoding='utf-8')
-
-          # Control del catálogo: todas las coberturas VF deben tener GeoJSON y resolver GPKG por dimensión.
           cat=json.loads(Path('public/catalog/index_coberturas.json').read_text(encoding='utf-8'))
           vf=[i for i in cat['items'] if str(i.get('tipoContenedor','')).lower().startswith('geopackage vf')]
-          missing_geo=[i['id'] for i in vf if not i.get('download')]
-          if missing_geo:
-              raise SystemExit('VF sin GeoJSON: '+', '.join(missing_geo))
-          dims={}
-          for i in vf:
-              dims.setdefault(i.get('dimensionPladeco','?'),0);dims[i.get('dimensionPladeco','?')]+=1
-          print('VF por dimensión:',dims)
-          print('Total VF con GeoJSON:',len(vf))
-
-          # RSH debe exponer clasificadores descriptivos existentes.
+          missing=[i['id'] for i in vf if not i.get('download')]
+          if missing:raise SystemExit('VF sin GeoJSON: '+', '.join(missing))
+          eco=[i for i in vf if 'ECONOM' in str(i.get('dimensionPladeco','')).upper()]
+          if not eco:raise SystemExit('No hay coberturas económicas VF')
           rsh=json.loads(Path('public/data/sociocultural/soc-pol-rsh-40-2024.geojson').read_text(encoding='utf-8'))
           keys=set((rsh.get('features') or [{}])[0].get('properties',{}).keys())
-          if not {'SECTOR_AU','AGRP'}.intersection(keys):
-              raise SystemExit('RSH no contiene SECTOR_AU ni AGRP')
-          print('RSH clasificadores:',sorted({'SECTOR_AU','AGRP'}.intersection(keys)))
+          if not {'SECTOR_AU','AGRP'}.intersection(keys):raise SystemExit('RSH sin clasificador esperado')
+          print('OK VF:',len(vf),' Económica:',len(eco),' RSH:',sorted({'SECTOR_AU','AGRP'}.intersection(keys)))
           PY
-
       - name: Mejorar visibilidad de acciones de descarga
         run: |
-          cat >> app/globals.css <<'CSS'
+          if ! grep -q 'Control de descargas VF y columna de acciones' app/globals.css; then cat >> app/globals.css <<'CSS'
 
 /* Control de descargas VF y columna de acciones */
 .coverageIndex th:last-child,.coverageIndex td:last-child{position:sticky;right:0;z-index:2;background:#fffefa;min-width:225px;box-shadow:-4px 0 8px #102c2712}.coverageIndex th:last-child{z-index:4;background:#173f38;color:#fff}.indexActions{min-width:205px}.indexActions .downloadAction{display:inline-flex!important;align-items:center;justify-content:center;min-width:82px;font-weight:700}.indexActions .downloadAction:before{content:"↓ ";font-weight:900}
 CSS
-
+          fi
       - name: Validar GeoPackage publicados
         run: |
           test -s public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg
           test -s public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
           test -s public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
-
       - name: Validar build
         run: |
           npm ci
           npx next build --webpack
-
       - name: Guardar correcciones
         run: |
           git config user.name 'github-actions[bot]'
