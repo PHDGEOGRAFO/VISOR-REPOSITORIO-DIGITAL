@@ -1,0 +1,41 @@
+name: Actualizar herramientas e indice VF
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/actualizar_herramientas_indice_vf.py'
+      - '.github/workflows/actualizar-herramientas-indice-vf.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar GDAL
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin
+      - name: Actualizar visor, catalogo y GeoPackage
+        run: python scripts/actualizar_herramientas_indice_vf.py
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Build
+        run: npx next build --webpack
+      - name: Validar GPKG e indice
+        run: |
+          ogrinfo public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg > /tmp/ambiental.txt
+          ! grep -E 'ALCORQUES_PARQUE_FORESTAL|AREA_LIBRE_HUMO|AREA_SILENCIO|AV_INE_SIEDU17|AV_PRC84|ESTRATOS_MEDIOS_PF|FUENTES_AGUA_PARQUE_FORESTAL|PARQUE_SIEDU_INE17|AMB_POL_PLAZAS$|PLAZAS_SIEDU_INE17|ZONAS_MANEJO_PARQUE_FORESTAL|ARBOLADO_CATASTRO_2013|ARBOLADO_QUINTA_NORMAL_2018|ARBOLADO_SURORIENTE_2019|ARBOLADO_SURPONIENTE_2019|ARBUSTOS_PF|ESTRATOS_ALTOS_PF|PLATANOS_ORIENTALES_PF' /tmp/ambiental.txt
+          python - <<'PY'
+          import json
+          j=json.load(open('public/catalog/index_coberturas.json',encoding='utf-8'))
+          assert j['total']==len(j['items'])
+          print('TOTAL',j['total'])
+          from collections import Counter
+          print(Counter(x.get('dimensionPladeco','') for x in j['items']))
+          PY
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx public/catalog/index_coberturas.json public/data/ambiental public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg
+          if git diff --cached --quiet; then echo 'Sin cambios'; else git commit -m 'Visor: vincular capas con herramientas y depurar Ambiental VF' && git push; fi
