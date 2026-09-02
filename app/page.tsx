@@ -317,7 +317,7 @@ export default function Home(){
  const manzanasAnalisis=polygon?featuresInPolygon(data.manzana??empty,polygon):[];
  const nperValues=manzanasAnalisis.map(f=>Number(f.properties.n_per)).filter(Number.isFinite),nperSum=nperValues.reduce((a,b)=>a+b,0),pointCount=selectedData.features.filter(f=>f.geometry.type==="Point").length;
  const manzanaPopulationSum=(data.manzana?.features??[]).reduce((s,f)=>s+(Number(f.properties.n_per)||0),0);
- const polygonResults=useMemo(()=>polygon?analyzePolygon(polygon,data,layers.map(l=>({id:l.id,name:l.name}))):null,[polygon,data]);
+ const polygonResults=useMemo(()=>{if(!polygon)return null;const scopeLayers=selected?layers.filter(l=>l.id===selected):layers.filter(l=>active.includes(l.id)&&l.theme!=="BASE");return analyzePolygon(polygon,data,scopeLayers.map(l=>({id:l.id,name:l.name})))},[polygon,data,selected,active]);
  const pointAnchors=multiSelected.filter(f=>f.geometry.type==="Point");
  const nearestDistance=useMemo(()=>{if(!pointAnchors.length)return null;const ds=pointAnchors.flatMap(o=>selectedData.features.filter(f=>f.geometry.type==="Point"&&!pointAnchors.includes(f)).map(f=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])));return ds.length?Math.min(...ds):null},[pointAnchors,selectedData]);
  const bufferCount=useMemo(()=>{if(analysis!=="Buffer"||!pointAnchors.length)return null;return selectedData.features.filter(f=>f.geometry.type==="Point"&&pointAnchors.some(o=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])<=radius)).length},[analysis,pointAnchors,selectedData,radius]);
