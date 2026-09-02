@@ -9,8 +9,12 @@ CATP=ROOT/'public/catalog/index_coberturas.json'
 def norm(s):
     return ''.join(c for c in unicodedata.normalize('NFD',str(s).upper()) if unicodedata.category(c)!='Mn')
 
-def pick(prefix,word):
-    c=[p for p in SRC.rglob('*.gpkg') if norm(p.name).startswith(prefix) and word in norm(p.name) and 'VF' in norm(p.name)]
+def pick(prefix, words):
+    if isinstance(words,str): words=(words,)
+    c=[]
+    for p in SRC.rglob('*.gpkg'):
+        n=norm(p.name)
+        if n.startswith(prefix) and 'VF' in n and any(w in n for w in words): c.append(p)
     return sorted(c,key=lambda p:p.stat().st_mtime,reverse=True)[0] if c else None
 
 def slug(s):
@@ -29,8 +33,8 @@ def geom_label(g):
     return 'Punto' if 'POINT' in u else ('Línea' if 'LINE' in u else 'Polígono')
 
 cfg=[
- ('01','URBANA','01_DIM_URBANA_VF.gpkg','urbana','URB','DIMENSIÓN URBANA','Planificación urbana y suelo / Movilidad e infraestructura','#315d8a'),
- ('05','ADMINISTRATIVA','05_DIM_ADMINISTRATIVA_VF.gpkg','administrativa','INS','DIMENSIÓN INSTITUCIONAL','Gestión municipal y activos institucionales','#6b5a83'),
+ ('01',('URBANA',),'01_DIM_URBANA_VF.gpkg','urbana','URB','DIMENSIÓN URBANA','Planificación urbana y suelo / Movilidad e infraestructura','#315d8a'),
+ ('05',('INSTITUCIONAL','ADMINISTRATIVA'),'05_DIM_INSTITUCIONAL_VF.gpkg','institucional','INS','DIMENSIÓN INSTITUCIONAL','Gestión municipal y activos institucionales','#6b5a83'),
 ]
 found=[]; missing=[]
 for row in cfg:
@@ -48,8 +52,7 @@ cat=json.loads(CATP.read_text(encoding='utf-8'))
 new_layers=[]; new_items=[]
 Path(ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
 for row,src in found:
-    prefix,word,canonical,folder,theme,dim,sector,color=row
-    # retirar catálogo previo solo de la dimensión encontrada
+    prefix,words,canonical,folder,theme,dim,sector,color=row
     cat['items']=[i for i in cat.get('items',[]) if i.get('dimensionPladeco')!=dim]
     dst=ROOT/'public/data/gpkg'/canonical
     shutil.copy2(src,dst)
@@ -78,11 +81,12 @@ if '["INS","Institucional / administrativa"]' not in s:
     s=s.replace('["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"]','["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"],["INS","Institucional / administrativa"]')
 block='\n /* GENERATED_MISSING_DIMS_START */\n'+'\n'.join(new_layers)+'\n /* GENERATED_MISSING_DIMS_END */\n'
 if '/* GENERATED_MISSING_DIMS_START */' in s:
-    # conservar bloques de dimensiones previamente cargadas reemplazándolos por el catálogo actual generado en esta ejecución
     s=re.sub(r'\n?\s*/\* GENERATED_MISSING_DIMS_START \*/.*?/\* GENERATED_MISSING_DIMS_END \*/\n?',block,s,flags=re.S)
 else:
     m=re.search(r'(const layers:Layer\[\]=\[)(.*?)(\n\];)',s,re.S)
     if not m: raise SystemExit('No se encontró arreglo layers')
-    s=s[:m.end(2)]+block+s[m.end(2):]
+    left=s[:m.end(2)].rstrip()
+    if not left.endswith(','): left+=','
+    s=left+block+s[m.end(2):]
 PAGE.write_text(s,encoding='utf-8')
 print('Integradas:',len(new_items),'capas. Catálogo total:',cat['total'])
