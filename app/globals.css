@@ -33,3 +33,7 @@
 @media print{.coverageIndex,.indexBackdrop{display:none!important}.map{page-break-inside:avoid!important;break-inside:avoid!important}}
 
 .downloadAuthBackdrop{position:fixed;inset:0;z-index:120;background:#102c2766;display:grid;place-items:center;padding:20px}.downloadAuthDialog{width:min(460px,92vw);background:#fffefa;border:1px solid var(--line);box-shadow:0 18px 50px #0005;padding:20px}.downloadAuthDialog p{margin:0 0 12px;font-size:14px;color:var(--ink)}.downloadAuthDialog input{width:100%;padding:11px 12px;border:2px solid #315fd4;border-radius:8px;background:#fff;font-size:15px;outline:none}.downloadAuthDialog>div{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.downloadAuthDialog button{border:1px solid var(--line);background:#eef2f7;padding:9px 16px;border-radius:20px}.downloadAuthDialog button.primary{background:#315fd4;color:#fff;border-color:#315fd4;margin-top:0}.downloadAuthError{display:block;margin-top:8px;color:#a63d32;font-size:11px}
+
+
+/* Control de descargas VF y columna de acciones */
+.coverageIndex th:last-child,.coverageIndex td:last-child{position:sticky;right:0;z-index:2;background:#fffefa;min-width:225px;box-shadow:-4px 0 8px #102c2712}.coverageIndex th:last-child{z-index:4;background:#173f38;color:#fff}.indexActions{min-width:205px}.indexActions .downloadAction{display:inline-flex!important;align-items:center;justify-content:center;min-width:82px;font-weight:700}.indexActions .downloadAction:before{content:"↓ ";font-weight:900}
