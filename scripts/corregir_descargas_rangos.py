@@ -10,9 +10,11 @@ new='''function gpkgDownload(i:IndexItem){
  const c=String(i.contenedor||"");
  if(c.toLowerCase().endsWith("_vf.gpkg"))return `/data/gpkg/${c}`;
  const d=normFieldName(`${itemDimension(i)} ${i.tema||""} ${i.carpeta||""}`);
+ if(d.includes("urbana")||d.includes("urb"))return "/data/gpkg/01_DIM_URBANA_VF.gpkg";
  if(d.includes("ambiental")||d.includes("amb"))return "/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg";
  if(d.includes("sociocultural")||d.includes("soc"))return "/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg";
  if(d.includes("economica")||d.includes("eco"))return "/data/gpkg/04_DIM_ECONOMICA_VF.gpkg";
+ if(d.includes("institucional")||d.includes("administrativa")||d.includes("ins")||d.includes("adm"))return "/data/gpkg/05_DIM_ADMINISTRATIVA_VF.gpkg";
  return ""
 }'''
 if old in s:
@@ -32,6 +34,17 @@ s=s.replace(
     'Solo se ofrecen campos descriptivos no sensibles: dirección, nombre, tipo/tipología, rango o equivalentes (grupo, sector, tramo, nivel, estrato, quintil, decil, segmento). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.'
 )
 p.write_text(s,encoding='utf-8')
+
+# Hover de puntos: prioriza nombre/descriptores públicos y excluye campos sensibles.
+im=ROOT/'app/InteractiveMap.tsx'
+t=im.read_text(encoding='utf-8')
+old_fn='function featureName(f:GeoFeature){const p=f.properties||{};return String(p.NOMBRE??p.NOM_BARRIO??p.NOM_TERR??p.SECTORES_T??p.BARRIO??p.TERRITORIO??p.COD_MZN??p.cod_mzn??p.EXPROP_ID??"Elemento")}'
+new_fn='''function featureName(f:GeoFeature){const p=f.properties||{};const keys=Object.keys(p);const norm=(v:string)=>v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g,"_");const sensitive=["rut","run","correo","email","mail","telefono","fono","celular","contacto","responsable","propietario","titular","apellido"];const safe=(k:string)=>!sensitive.some(x=>norm(k).includes(x));const preferred=["nombre","name","nom","denominacion","establecimiento","equipamiento","recinto","direccion","domicilio","calle","tipo","tipologia","categoria","barrio","territorio","comuna"];for(const hint of preferred){const k=keys.find(k=>safe(k)&&(norm(k)===hint||norm(k).startsWith(hint+"_")||norm(k).endsWith("_"+hint)));if(k&&p[k]!=null&&String(p[k]).trim())return String(p[k])}return String(p.COD_MZN??p.cod_mzn??"Elemento") }'''
+if old_fn in t:
+    t=t.replace(old_fn,new_fn,1)
+elif 'const sensitive=[' not in t:
+    raise SystemExit('No se pudo actualizar featureName')
+im.write_text(t,encoding='utf-8')
 
 css=ROOT/'app/globals.css'
 c=css.read_text(encoding='utf-8')
@@ -70,3 +83,4 @@ if not rsh_fields:
 print('OK VF por dimensión:',dim_counts)
 print('OK RSH clasificadores:',sorted(rsh_fields))
 print('OK descargas GeoJSON para',len(vf),'coberturas VF y GPKG por dimensión')
+print('OK hover seguro de puntos con nombre/descriptor público')
