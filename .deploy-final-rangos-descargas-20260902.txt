@@ -1,0 +1,1 @@
+Publicación final de corrección: descargas VF robustas + desagregación por rango/equivalentes. 2026-09-02.
