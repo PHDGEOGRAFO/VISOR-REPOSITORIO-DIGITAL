@@ -1,0 +1,56 @@
+name: Optimizar escalas territoriales
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/optimizar-escalas-territoriales.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar optimización de escalas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          # Territorios: usar geometría liviana ya publicada.
+          s=s.replace('url:`${BASE_PATH}/data/territorios.geojson`','url:`${BASE_PATH}/data/urbana/limite-territorios-pladeco.geojson`')
+
+          # No precargar todas las bases territoriales. Solo cargar la activa/default/seleccionada.
+          old='const shouldLoad=layer.theme==="BASE"||layer.activeDefault||active.includes(layer.id)||layer.id===selected;'
+          new='const shouldLoad=layer.activeDefault||active.includes(layer.id)||layer.id===selected;'
+          if old in s:
+              s=s.replace(old,new)
+
+          # Para manzanas usar las seis piezas territoriales simplificadas en vez del GeoJSON de ~9 MB.
+          old_fetch='fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then((fc:GeoCollection)=>{'
+          new_fetch='''const layerFetch:Promise<GeoCollection>=layer.id==="manzana"\n   ?Promise.all(["CENTRO_ORIENTE","CENTRO_PONIENTE","NORORIENTE","NORPONIENTE","SURORIENTE","SURPONIENTE"].map(n=>fetch(`${BASE_PATH}/data/manzanas/${n}.geojson`).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}))).then(parts=>({type:"FeatureCollection",features:parts.flatMap((x:GeoCollection)=>x.features)} as GeoCollection))\n   :fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});\n   layerFetch.then((fc:GeoCollection)=>{'''
+          if old_fetch in s:
+              s=s.replace(old_fetch,new_fetch)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios pendientes'
+            exit 0
+          fi
+          git commit -m 'Visor: evitar caídas al cambiar escala territorial'
+          git push
