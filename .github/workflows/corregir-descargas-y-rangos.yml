@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/corregir-descargas-y-rangos.yml'
       - 'scripts/corregir_descargas_rangos.py'
+      - 'scripts/integrar_dimensiones_faltantes.py'
 
 permissions:
   contents: write
@@ -20,17 +21,40 @@ jobs:
       - name: Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Aplicar correcciones
+          node-version: '22'
+      - name: Aplicar hover seguro, filtro y rangos
         run: python scripts/corregir_descargas_rangos.py
+      - name: Instalar utilidades GIS
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal
+          python -m pip install --break-system-packages gdown
+      - name: Descargar carpeta VF
+        run: |
+          rm -rf /tmp/vf && mkdir -p /tmp/vf
+          gdown --folder 'https://drive.google.com/drive/folders/1BEu1Vy6u8hrmu6r2v5hRE6TKupiaDbP7' -O /tmp/vf --remaining-ok
+          echo '=== VF DISPONIBLES ==='
+          find /tmp/vf -maxdepth 3 -type f -printf '%f\n' | sort
+      - name: Integrar dimensiones faltantes si existen
+        run: python scripts/integrar_dimensiones_faltantes.py
+      - name: Validar cinco dimensiones disponibles
+        run: |
+          for f in 01_DIM_URBANA_VF.gpkg 02_DIM_AMBIENTAL_VF.gpkg 03_DIM_SOCIOCULTURAL_VF.gpkg 04_DIM_ECONOMICA_VF.gpkg 05_DIM_ADMINISTRATIVA_VF.gpkg; do
+            if test -s "public/data/gpkg/$f"; then echo "OK $f"; else echo "FALTA $f"; fi
+          done
+          test -s public/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg
+          test -s public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg
+          test -s public/data/gpkg/04_DIM_ECONOMICA_VF.gpkg
+          grep -q '"rango"' app/page.tsx
+          grep -q 'const sensitive=' app/InteractiveMap.tsx
       - name: Validar build
         run: |
           npm ci
           npx next build --webpack
-      - name: Guardar correcciones
+      - name: Guardar correcciones e integraciones disponibles
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/page.tsx app/globals.css
-          git commit -m "Visor: descargas VF robustas y rangos de desagregacion" || exit 0
+          git add app/page.tsx app/InteractiveMap.tsx app/globals.css public/data public/catalog/index_coberturas.json
+          git commit -m "Visor: hover seguro filtros y dimensiones VF disponibles" || exit 0
           git push
