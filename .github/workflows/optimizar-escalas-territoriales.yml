@@ -54,3 +54,5 @@ jobs:
           fi
           git commit -m 'Visor: evitar caídas al cambiar escala territorial'
           git push
+
+# trigger 2026-09-02
