@@ -1,0 +1,53 @@
+name: Habilitar todos los campos para desagregacion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/habilitar-todos-campos-desagregacion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Habilitar campos no sensibles
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='function publicVisualizationFields(layer:Layer,fc:GeoCollection){const f=fc.features[0];if(!f)return[];const keys=Object.keys(f.properties||{});if(visualizationException(layer))return keys;const safe=keys.filter(k=>!sensitiveField(k));const preferred=safe.filter(descriptorField);return (preferred.length?preferred:safe.slice(0,6)).slice(0,12)}'
+          new='function publicVisualizationFields(layer:Layer,fc:GeoCollection){if(!fc.features.length)return[];const keys=[...new Set(fc.features.slice(0,500).flatMap(f=>Object.keys(f.properties||{})))];return keys.filter(k=>!sensitiveField(k)).sort((a,b)=>a.localeCompare(b,"es"))}'
+          if old not in s:
+              raise SystemExit('No se encontro publicVisualizationFields esperado')
+          s=s.replace(old,new)
+          old2='const disaggregateFields=useMemo(()=>visualizationFields.filter(k=>{const vals=selectedData.features.slice(0,500).map(x=>x.properties?.[k]).filter(v=>v!=null&&String(v).trim()!=="");const uniq=new Set(vals.map(v=>String(v)));return vals.length>0&&uniq.size>1&&uniq.size<=50}).sort(),[selectedData,visualizationFields]);'
+          new2='const disaggregateFields=useMemo(()=>visualizationFields.filter(k=>selectedData.features.some(x=>x.properties?.[k]!=null&&String(x.properties?.[k]).trim()!=="")),[selectedData,visualizationFields]);'
+          if old2 not in s:
+              raise SystemExit('No se encontro disaggregateFields esperado')
+          s=s.replace(old2,new2)
+          old3='Solo se ofrecen campos descriptivos no sensibles: dirección, nombre, tipo/tipología, rango o equivalentes (grupo, sector, tramo, nivel, estrato, quintil, decil, segmento). Manzanas censales y coberturas SII quedan exceptuadas de este filtro.'
+          new3='Se ofrecen todos los campos disponibles de la cobertura para desagregación, excepto campos sensibles. El resumen muestra solo las primeras categorías para mantener buen rendimiento.'
+          s=s.replace(old3,new3)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambio
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios pendientes'
+            exit 0
+          fi
+          git commit -m 'Visor: habilitar todos los campos no sensibles para desagregacion'
+          git push
