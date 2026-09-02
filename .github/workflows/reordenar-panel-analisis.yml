@@ -1,0 +1,77 @@
+name: Reordenar panel de analisis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reordenar-panel-analisis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reordenar controles KISS
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Mover Desagregar por al inicio del bloque de selección y análisis.
+          sel='<div className="selectionBlock"><b>1. Selección y análisis</b>'
+          dis='<div className="disaggregateControl">'
+          ain='<div className="analysisInline">'
+          if sel not in s or dis not in s or ain not in s:
+              raise SystemExit('No se encontraron marcadores del bloque de selección')
+          d0=s.index(dis, s.index(sel))
+          d1=s.index(ain, d0)
+          dis_block=s[d0:d1]
+          s=s[:d0]+s[d1:]
+          insert=s.index(sel)+len(sel)
+          s=s[:insert]+dis_block+s[insert:]
+
+          # 2) Mover controles de isócronas y resultado/cantidad antes del punto 2.
+          visual='<div className="visualBlock"><b>2. Visualización / capas independientes</b>'
+          iso='{analysis==="Isócronas"&&<div className="isoControls">'
+          result='<p className="analysisResult"><strong>{analysisResult}</strong></p>'
+          if visual not in s or result not in s:
+              raise SystemExit('No se encontraron marcadores de visualización/resultado')
+
+          # Extraer bloque Isócronas si existe, delimitado por el resultado.
+          iso_block=''
+          if iso in s:
+              i0=s.index(iso)
+              i1=s.index(result, i0)
+              iso_block=s[i0:i1]
+              s=s[:i0]+s[i1:]
+
+          # Extraer resultado.
+          r0=s.index(result)
+          s=s[:r0]+s[r0+len(result):]
+
+          # Insertar ambos inmediatamente antes de Visualización / capas independientes.
+          v0=s.index(visual)
+          s=s[:v0]+iso_block+result+s[v0:]
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar cambio
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios pendientes'
+            exit 0
+          fi
+          git commit -m 'Visor: reordenar controles de analisis KISS'
+          git push
