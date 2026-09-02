@@ -1,0 +1,41 @@
+name: Corregir alcance SantIA capa seleccionada
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-santi-selected-layer-scope.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Limitar SantIA a la cobertura seleccionada
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old='const polygonResults=useMemo(()=>polygon?analyzePolygon(polygon,data,layers.map(l=>({id:l.id,name:l.name}))):null,[polygon,data]);'
+          new='const polygonResults=useMemo(()=>{if(!polygon)return null;const scopeLayers=selected?layers.filter(l=>l.id===selected):layers.filter(l=>active.includes(l.id)&&l.theme!=="BASE");return analyzePolygon(polygon,data,scopeLayers.map(l=>({id:l.id,name:l.name})))},[polygon,data,selected,active]);'
+          if old not in s:
+              raise SystemExit('No se encontro la expresion polygonResults esperada')
+          s=s.replace(old,new)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar corrección
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          git commit -m 'SantIA: analizar solo la cobertura seleccionada' || exit 0
+          git push
