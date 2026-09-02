@@ -1,0 +1,66 @@
+name: Corregir codificacion de textos
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/corregir-codificacion-textos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-utf8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corregir mojibake y simbolos visibles
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files=[Path('app/page.tsx'),Path('app/santi.ts'),Path('app/InteractiveMap.tsx'),Path('app/globals.css'),Path('app/layout.tsx')]
+          chars='áéíóúÁÉÍÓÚñÑüÜ¿¡°·–—…✓'
+          replacements={}
+          for ch in chars:
+              try:
+                  m1=ch.encode('utf-8').decode('latin1')
+                  replacements[m1]=ch
+                  try:
+                      m2=m1.encode('utf-8').decode('latin1')
+                      replacements[m2]=ch
+                  except UnicodeDecodeError:
+                      pass
+              except UnicodeDecodeError:
+                  pass
+          replacements.update({'â€“':'–','â€”':'—','â€¦':'…','âœ“':'✓','Â·':'·','Â°':'°','Â¿':'¿','Â¡':'¡','Ã‚Â·':'·','Ã‚Â¿':'¿','Ã‚Â¡':'¡'})
+          changed=[]
+          for p in files:
+              if not p.exists(): continue
+              s=p.read_text(encoding='utf-8')
+              original=s
+              for bad,good in sorted(replacements.items(),key=lambda kv:len(kv[0]),reverse=True):
+                  s=s.replace(bad,good)
+              if s!=original:
+                  p.write_text(s,encoding='utf-8',newline='\n')
+                  changed.append(str(p))
+          suspicious=[]
+          for p in files:
+              if not p.exists(): continue
+              s=p.read_text(encoding='utf-8')
+              for token in ['Ã¡','Ã©','Ã­','Ã³','Ãº','Ã±','Ã','Ã‰','Ã','Ã“','Ãš','Ã‘','Â¿','Â¡','â€“','â€”','â€¦']:
+                  if token in s: suspicious.append((str(p),token))
+          if suspicious: raise SystemExit('Persisten secuencias dañadas: '+repr(suspicious[:20]))
+          print('Archivos corregidos:',changed or 'ninguno; ya estaban limpios')
+          PY
+      - name: Commit correccion
+        run: |
+          if git diff --quiet; then
+            echo "No hay cambios"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/santi.ts app/InteractiveMap.tsx app/globals.css app/layout.tsx
+          git commit -m "UI: corregir acentos y simbolos UTF-8"
+          git push
