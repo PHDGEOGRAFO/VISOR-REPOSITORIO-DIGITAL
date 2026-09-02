@@ -31,111 +31,57 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import json, re, shutil, sqlite3, subprocess, unicodedata
-
-          root=Path('/tmp/vf')
-          repo=Path('.')
-          page=Path('app/page.tsx')
-          catp=Path('public/catalog/index_coberturas.json')
-
-          def norm(s):
-              return ''.join(c for c in unicodedata.normalize('NFD',s.upper()) if unicodedata.category(c)!='Mn')
+          root=Path('/tmp/vf'); page=Path('app/page.tsx'); catp=Path('public/catalog/index_coberturas.json')
+          def norm(s): return ''.join(c for c in unicodedata.normalize('NFD',s.upper()) if unicodedata.category(c)!='Mn')
           def pick(prefix, word):
-              candidates=[]
-              for p in root.rglob('*.gpkg'):
-                  n=norm(p.name)
-                  if n.startswith(prefix) and word in n and 'VF' in n:
-                      candidates.append(p)
-              if not candidates:
-                  raise SystemExit(f'FALTA EN CARPETA VF: {prefix}*{word}*VF*.gpkg')
+              candidates=[p for p in root.rglob('*.gpkg') if norm(p.name).startswith(prefix) and word in norm(p.name) and 'VF' in norm(p.name)]
+              if not candidates: raise SystemExit(f'FALTA EN CARPETA VF: {prefix}*{word}*VF*.gpkg')
               return sorted(candidates,key=lambda p:p.stat().st_mtime,reverse=True)[0]
           def slug(s):
-              s=norm(s).lower().replace('_','-')
-              s=re.sub(r'[^a-z0-9-]+','-',s)
-              return re.sub(r'-+','-',s).strip('-')
+              s=norm(s).lower().replace('_','-'); s=re.sub(r'[^a-z0-9-]+','-',s); return re.sub(r'-+','-',s).strip('-')
           def friendly(s):
               for pref in ('URB_LIN_','URB_POL_','URB_PTO_','ADM_LIN_','ADM_POL_','ADM_PTO_','INS_LIN_','INS_POL_','INS_PTO_'):
-                  if s.upper().startswith(pref): s=s[len(pref):];break
+                  if s.upper().startswith(pref): s=s[len(pref):]; break
               return s.replace('_',' ').title().replace('Sii','SII').replace('Prc','PRC').replace('Ine','INE')
           def geom_label(g):
-              u=(g or '').upper()
-              if 'POINT' in u:return 'Punto'
-              if 'LINE' in u:return 'Línea'
-              return 'Polígono'
-          def ts_geom(g):
-              return geom_label(g)
-
-          cfg=[
-            ('01','URBANA','01_DIM_URBANA_VF.gpkg','urbana','URB','DIMENSIÓN URBANA','Planificación urbana y suelo / Movilidad e infraestructura','#315d8a'),
-            ('05','ADMINISTRATIVA','05_DIM_ADMINISTRATIVA_VF.gpkg','administrativa','INS','DIMENSIÓN INSTITUCIONAL','Gestión municipal y activos institucionales','#6b5a83'),
-          ]
-          new_layers=[]; new_items=[]
-          Path('public/data/gpkg').mkdir(parents=True,exist_ok=True)
-          cat=json.loads(catp.read_text(encoding='utf-8'))
-          # retirar versiones previas de estas dos dimensiones si las hubiera
-          cat['items']=[i for i in cat.get('items',[]) if i.get('dimensionPladeco') not in ('DIMENSIÓN URBANA','DIMENSIÓN INSTITUCIONAL')]
-
+              u=(g or '').upper(); return 'Punto' if 'POINT' in u else ('Línea' if 'LINE' in u else 'Polígono')
+          cfg=[('01','URBANA','01_DIM_URBANA_VF.gpkg','urbana','URB','DIMENSIÓN URBANA','Planificación urbana y suelo / Movilidad e infraestructura','#315d8a'),('05','ADMINISTRATIVA','05_DIM_ADMINISTRATIVA_VF.gpkg','administrativa','INS','DIMENSIÓN INSTITUCIONAL','Gestión municipal y activos institucionales','#6b5a83')]
+          new_layers=[]; new_items=[]; Path('public/data/gpkg').mkdir(parents=True,exist_ok=True)
+          cat=json.loads(catp.read_text(encoding='utf-8')); cat['items']=[i for i in cat.get('items',[]) if i.get('dimensionPladeco') not in ('DIMENSIÓN URBANA','DIMENSIÓN INSTITUCIONAL')]
           for prefix,word,canonical,folder,theme,dim,sector,color in cfg:
-              src=pick(prefix,word)
-              dst=Path('public/data/gpkg')/canonical
-              shutil.copy2(src,dst)
+              src=pick(prefix,word); dst=Path('public/data/gpkg')/canonical; shutil.copy2(src,dst)
               outdir=Path('public/data')/folder
               if outdir.exists(): shutil.rmtree(outdir)
               outdir.mkdir(parents=True)
-              con=sqlite3.connect(dst)
-              rows=con.execute("""SELECT c.table_name,g.geometry_type_name,g.srs_id FROM gpkg_contents c JOIN gpkg_geometry_columns g ON c.table_name=g.table_name WHERE c.data_type='features' ORDER BY c.table_name""").fetchall()
+              con=sqlite3.connect(dst); rows=con.execute("SELECT c.table_name,g.geometry_type_name,g.srs_id FROM gpkg_contents c JOIN gpkg_geometry_columns g ON c.table_name=g.table_name WHERE c.data_type='features' ORDER BY c.table_name").fetchall()
               if not rows: raise SystemExit(f'{canonical} no contiene capas espaciales')
               for table,gtype,srs in rows:
-                  count=con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
-                  sid=f"vf-{folder[:3]}-{slug(table)}"
-                  fname=slug(table)+'.geojson'
-                  out=outdir/fname
+                  count=con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]; sid=f"vf-{folder[:3]}-{slug(table)}"; fname=slug(table)+'.geojson'; out=outdir/fname
                   subprocess.run(['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',str(out),str(dst),table,'-lco','RFC7946=YES'],check=True)
-                  gj=json.loads(out.read_text(encoding='utf-8'))
-                  valid=len(gj.get('features',[]))
-                  name=friendly(table)
-                  new_layers.append(f' {{id:"{sid}",name:{json.dumps(name,ensure_ascii=False)},theme:"{theme}",geometry:"{ts_geom(gtype)}",url:`${{BASE_PATH}}/data/{folder}/{fname}`,color:"{color}",description:{json.dumps("Cobertura publicada desde "+canonical+".",ensure_ascii=False)},source:"{canonical}"}},')
-                  new_items.append({
-                    'id':sid,'mapId':sid,'tema':theme,'dimensionPladeco':dim,'sector':sector,'nombre':name,
-                    'carpeta':canonical[:-5],'geometria':geom_label(gtype),'escala':'Comuna','contenedor':canonical,
-                    'tipoContenedor':'GeoPackage VF','subcapa':table,'campoClave':'','estado':'PUBLICADA',
-                    'validacion':'VALIDADA PARA VISUALIZACIÓN','registros':valid,'registrosFuente':count,
-                    'crs':f'EPSG:{srs} (fuente) / EPSG:4326 (web)','verEnMapa':True,
-                    'download':f'/data/{folder}/{fname}','observaciones':'Carga oficial desde versión final _VF.'
-                  })
-              con.close()
-              print(canonical,'capas:',len(rows),'fuente:',src.name)
-
-          # Actualizar catálogo
-          cat['items'].extend(new_items)
-          cat['total']=len(cat['items'])
-          cat['generatedAt']='2026-09-02'
-          catp.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-
-          # Actualizar tipos/grupos y reemplazar bloque generado para dimensiones faltantes.
-          s=page.read_text(encoding='utf-8')
-          s=s.replace('type Theme="BASE"|"AMB"|"URB"|"MOV"|"SEG"|"SAL"|"ECO"|"SOC";', 'type Theme="BASE"|"AMB"|"URB"|"MOV"|"SEG"|"SAL"|"ECO"|"SOC"|"INS";')
-          if '["INS","Institucional / administrativa"]' not in s:
-              s=s.replace('["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"]', '["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"],["INS","Institucional / administrativa"]')
+                  valid=len(json.loads(out.read_text(encoding='utf-8')).get('features',[])); name=friendly(table)
+                  new_layers.append(f' {{id:"{sid}",name:{json.dumps(name,ensure_ascii=False)},theme:"{theme}",geometry:"{geom_label(gtype)}",url:`${{BASE_PATH}}/data/{folder}/{fname}`,color:"{color}",description:{json.dumps("Cobertura publicada desde "+canonical+".",ensure_ascii=False)},source:"{canonical}"}},')
+                  new_items.append({'id':sid,'mapId':sid,'tema':theme,'dimensionPladeco':dim,'sector':sector,'nombre':name,'carpeta':canonical[:-5],'geometria':geom_label(gtype),'escala':'Comuna','contenedor':canonical,'tipoContenedor':'GeoPackage VF','subcapa':table,'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':valid,'registrosFuente':count,'crs':f'EPSG:{srs} (fuente) / EPSG:4326 (web)','verEnMapa':True,'download':f'/data/{folder}/{fname}','observaciones':'Carga oficial desde versión final _VF.'})
+              con.close(); print(canonical,'capas:',len(rows),'fuente:',src.name)
+          cat['items'].extend(new_items); cat['total']=len(cat['items']); cat['generatedAt']='2026-09-02'; catp.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          s=page.read_text(encoding='utf-8'); s=s.replace('type Theme="BASE"|"AMB"|"URB"|"MOV"|"SEG"|"SAL"|"ECO"|"SOC";', 'type Theme="BASE"|"AMB"|"URB"|"MOV"|"SEG"|"SAL"|"ECO"|"SOC"|"INS";')
+          if '["INS","Institucional / administrativa"]' not in s: s=s.replace('["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"]','["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"],["INS","Institucional / administrativa"]')
           block='\n /* GENERATED_MISSING_DIMS_START */\n'+'\n'.join(new_layers)+'\n /* GENERATED_MISSING_DIMS_END */\n'
-          if '/* GENERATED_MISSING_DIMS_START */' in s:
-              s=re.sub(r'\n?\s*/\* GENERATED_MISSING_DIMS_START \*/.*?/\* GENERATED_MISSING_DIMS_END \*/\n?',block,s,flags=re.S)
+          if '/* GENERATED_MISSING_DIMS_START */' in s: s=re.sub(r'\n?\s*/\* GENERATED_MISSING_DIMS_START \*/.*?/\* GENERATED_MISSING_DIMS_END \*/\n?',block,s,flags=re.S)
           else:
               m=re.search(r'(const layers:Layer\[\]=\[)(.*?)(\n\];)',s,re.S)
               if not m: raise SystemExit('No se encontró arreglo layers')
               s=s[:m.end(2)]+block+s[m.end(2):]
-          page.write_text(s,encoding='utf-8')
-          print('Catálogo total:',cat['total'],'nuevas Urbana/Admin:',len(new_items))
+          page.write_text(s,encoding='utf-8'); print('Catálogo total:',cat['total'],'nuevas Urbana/Admin:',len(new_items))
           PY
       - name: Mejorar nombre predeterminado al posicionarse sobre puntos
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('app/InteractiveMap.tsx');s=p.read_text(encoding='utf-8')
+          p=Path('app/InteractiveMap.tsx'); s=p.read_text(encoding='utf-8')
           old='function featureName(f:GeoFeature){const p=f.properties||{};return String(p.NOMBRE??p.NOM_BARRIO??p.NOM_TERR??p.SECTORES_T??p.BARRIO??p.TERRITORIO??p.COD_MZN??p.cod_mzn??p.EXPROP_ID??"Elemento")}'
           new='''function featureName(f:GeoFeature){const p=f.properties||{};const keys=Object.keys(p);const norm=(v:string)=>v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g,"_");const sensitive=["rut","run","correo","email","mail","telefono","fono","celular","contacto","responsable","propietario","titular","apellido"];const safe=(k:string)=>!sensitive.some(x=>norm(k).includes(x));const preferred=["nombre","name","nom","denominacion","establecimiento","equipamiento","recinto","direccion","domicilio","calle","tipo","tipologia","categoria","barrio","territorio","comuna"];for(const hint of preferred){const k=keys.find(k=>safe(k)&&(norm(k)===hint||norm(k).startsWith(hint+"_")||norm(k).endsWith("_"+hint)));if(k&&p[k]!=null&&String(p[k]).trim())return String(p[k])}return String(p.COD_MZN??p.cod_mzn??"Elemento") }'''
           if old not in s: raise SystemExit('No se encontró featureName esperado')
-          s=s.replace(old,new,1)
-          p.write_text(s,encoding='utf-8')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
       - name: Validar reglas de visualización y rangos
         run: |
@@ -157,3 +103,4 @@ jobs:
           git add app/page.tsx app/InteractiveMap.tsx public/data public/catalog/index_coberturas.json
           git commit -m 'Visor: integrar Urbana Administrativa y hover seguro' || exit 0
           git push
+# trigger 2026-09-02
