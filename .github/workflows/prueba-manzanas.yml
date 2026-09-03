@@ -1,0 +1,69 @@
+name: Prueba Manzanas sin reload
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/prueba-manzanas.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  manzanas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx next build --webpack
+      - name: Instalar Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Servir exportación
+        run: |
+          mkdir -p smoke-site/VISOR-REPOSITORIO-DIGITAL
+          cp -a out/. smoke-site/VISOR-REPOSITORIO-DIGITAL/
+          python3 -m http.server 4173 --directory smoke-site >/tmp/manzanas-http.log 2>&1 &
+          sleep 2
+      - name: Activar y validar Manzanas
+        run: |
+          cat > prueba-manzanas.mjs <<'JS'
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:1600,height:1000}});
+          const errors=[];
+          const loaded=new Set();
+          page.on('pageerror',e=>errors.push(e.message));
+          page.on('response',r=>{if(/\/data\/manzanas\/(CENTRO_ORIENTE|CENTRO_PONIENTE|NORORIENTE|NORPONIENTE|SURORIENTE|SURPONIENTE)\.geojson/i.test(r.url())&&r.ok())loaded.add(r.url().split('/').pop())});
+          await page.goto('http://127.0.0.1:4173/VISOR-REPOSITORIO-DIGITAL/',{waitUntil:'networkidle',timeout:60000});
+          const row=page.locator('.layerControl label').filter({hasText:'Manzanas · Censo 2024'}).first();
+          await row.waitFor();
+          const input=row.locator('input[type=checkbox]');
+          await input.check({force:true});
+          await page.waitForTimeout(5000);
+          if(!(await input.isChecked()))throw new Error('El checkbox de Manzanas no quedó activo');
+          if(errors.length)throw new Error('pageerror al activar Manzanas: '+errors.join(' | '));
+          if(loaded.size!==6)throw new Error(`Se cargaron ${loaded.size}/6 piezas de manzanas: ${[...loaded].join(', ')}`);
+          await page.locator('.santiAsk textarea').waitFor();
+          console.log('OK Manzanas activas, 6/6 archivos cargados, página viva y sin reload/pageerror');
+          await page.screenshot({path:'manzanas-ok.png',fullPage:true});
+          await browser.close();
+          JS
+          node prueba-manzanas.mjs
+      - name: Guardar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-manzanas
+          path: |
+            manzanas-ok.png
+            /tmp/manzanas-http.log
+          if-no-files-found: ignore
