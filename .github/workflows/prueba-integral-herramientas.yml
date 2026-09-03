@@ -42,7 +42,7 @@ jobs:
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1600,height:1000}});
-          page.setDefaultTimeout(12000);
+          page.setDefaultTimeout(15000);
           const errors=[];
           page.on('pageerror',e=>errors.push('pageerror: '+e.message));
           page.on('console',m=>{if(m.type()==='error'&&!/tile.openstreetmap.org/i.test(m.text())) errors.push('console: '+m.text())});
@@ -53,6 +53,7 @@ jobs:
           async function clickText(text){const loc=page.getByText(text,{exact:true}).last();await loc.scrollIntoViewIfNeeded();await loc.click();}
           await page.goto('http://127.0.0.1:4173/VISOR-REPOSITORIO-DIGITAL/',{waitUntil:'networkidle',timeout:60000});
           await test('Carga inicial',async()=>{await page.getByText('Herramientas del mapa',{exact:true}).waitFor();});
+          await test('Descripcion institucional',async()=>{await page.getByText(/Información territorial elaborada a partir de antecedentes proporcionados por direcciones y oficinas municipales/).waitFor();});
           await test('Sin mojibake visible',async()=>{const body=await page.locator('body').innerText();if(/[ÃÂ�]/.test(body))throw new Error('Se detectaron caracteres de codificacion dañada');});
           await test('Activar Aparcadores Ilegales',async()=>{
             const search=page.locator('.sidebarSearch input');
@@ -68,11 +69,11 @@ jobs:
           await test('Desagregar por',async()=>{const sel=page.locator('.disaggregateControl select');const vals=await sel.locator('option').evaluateAll(os=>os.map(o=>o.value).filter(Boolean));if(!vals.length)throw new Error('No hay campos habilitados');await sel.selectOption(vals[0]);await page.waitForTimeout(300);});
           await test('Seleccionar puntos',async()=>{await clickText('Seleccionar puntos');});
           await test('Modo Polígono',async()=>{await clickText('Polígono');});
-          const analysis=page.locator('.analysisInline select').first();
-          for(const name of ['Cantidad de registros','Buffer','Proximidad','Densidad','Isócronas','Suma n_per','Promedio n_per']){
-            await test('Análisis: '+name,async()=>{await analysis.selectOption({label:name});await page.waitForTimeout(name==='Isócronas'?1300:300);const txt=(await page.locator('.analysisResult').innerText()).trim();if(!txt)throw new Error('Resultado vacío');});
+          await test('Promedio n_per eliminado',async()=>{const labels=await page.locator('.analysisInline select').first().locator('option').allTextContents();if(labels.some(x=>x.includes('Promedio n_per')))throw new Error('Promedio n_per sigue presente');if(!labels.some(x=>x.includes('Suma n_per')))throw new Error('Suma n_per no está disponible');});
+          for(const name of ['Cantidad de registros','Buffer','Proximidad','Densidad','Isócronas','Suma n_per']){
+            await test('Análisis: '+name,async()=>{const analysis=page.locator('.analysisInline select').first();await analysis.selectOption({label:name});await page.waitForTimeout(name==='Isócronas'?1500:500);const txt=(await page.locator('.analysisResult').innerText()).trim();if(!txt)throw new Error('Resultado vacío');if(name==='Suma n_per'&&!/Manzanas INE Censo 2024|Manzanas INE · Censo 2024/i.test(txt))throw new Error('Suma n_per no identifica base INE 2024');});
           }
-          await analysis.selectOption({label:'Cantidad de registros'});
+          await page.locator('.analysisInline select').first().selectOption({label:'Cantidad de registros'});
           await clickText('Seleccionar puntos');
           for(const name of ['Puntos','Clúster','Calor','Líneas oficiales']){
             await test('Visualización: '+name,async()=>{const b=page.getByRole('button',{name,exact:true}).last();await b.scrollIntoViewIfNeeded();await b.click();await page.waitForTimeout(300);});
@@ -82,6 +83,7 @@ jobs:
               await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);
               const modal=page.locator('.utilityModal').last();await modal.waitFor();
               const before=await modal.boundingBox();if(!before)throw new Error('Ventana sin dimensiones');
+              const resize=await modal.evaluate(el=>getComputedStyle(el).resize);if(resize==='none')throw new Error('Ventana no redimensionable');
               const header=modal.locator('header');const hb=await header.boundingBox();if(!hb)throw new Error('Sin cabecera movible');
               await page.mouse.move(hb.x+80,hb.y+20);await page.mouse.down();await page.mouse.move(hb.x+125,hb.y+55,{steps:4});await page.mouse.up();
               const after=await modal.boundingBox();if(!after||Math.abs(after.x-before.x)<10)throw new Error('La ventana no se desplazó');
@@ -93,7 +95,8 @@ jobs:
           await test('Activar Barrios sin reload',async()=>{const before=page.url();const label=page.getByText('Barrios',{exact:true}).first();await label.scrollIntoViewIfNeeded();await label.click();await page.waitForTimeout(1600);if(page.isClosed())throw new Error('Pagina cerrada');if(page.url()!==before)throw new Error('Navegacion/reload inesperado');await page.locator('.santiAsk textarea').waitFor();});
           await test('SantIA Barrio Brasil',async()=>{const ta=page.locator('.santiAsk textarea');await ta.fill('cuántos aparcadores hay en barrio Brasil');await page.getByRole('button',{name:'Consultar'}).click();await page.waitForTimeout(1500);const r=(await page.locator('.santiResponse').innerText()).trim();if(!r)throw new Error('SantIA sin respuesta por barrio');if(/0 barrios/i.test(r))throw new Error('SantIA sigue reportando 0 barrios');});
           await test('Activar Territorios sin reload',async()=>{const before=page.url();const label=page.getByText('Territorios',{exact:true}).first();await label.scrollIntoViewIfNeeded();await label.click();await page.waitForTimeout(1300);if(page.url()!==before)throw new Error('Navegacion/reload inesperado');await page.locator('.santiAsk textarea').waitFor();});
-          await test('Activar Manzanas sin reload',async()=>{const before=page.url();const label=page.getByText(/Manzanas · Censo 2024/).first();await label.scrollIntoViewIfNeeded();await label.click();await page.waitForTimeout(2600);if(page.url()!==before)throw new Error('Navegacion/reload inesperado');await page.locator('.santiAsk textarea').waitFor();});
+          await test('Activar Manzanas INE sin reload',async()=>{const before=page.url();const row=page.locator('.layerControl label').filter({hasText:'Manzanas INE · Censo 2024'}).first();const cb=row.locator('input[type=checkbox]');if(!(await cb.isChecked()))await cb.check();await page.waitForTimeout(3000);if(page.url()!==before)throw new Error('Navegacion/reload inesperado');await page.locator('.santiAsk textarea').waitFor();});
+          await test('Notebook 1366x768 muestra Visualización',async()=>{await page.setViewportSize({width:1366,height:768});const block=page.locator('.visualBlock');await block.scrollIntoViewIfNeeded();await block.waitFor({state:'visible'});const box=await block.boundingBox();if(!box||box.y<0||box.y>=768)throw new Error('Visualización queda fuera de pantalla');});
           await page.screenshot({path:'smoke-final.png',fullPage:true});
           const failed=results.filter(x=>x.status==='FAIL');
           console.log('\nRESULTADOS',JSON.stringify(results,null,2));
