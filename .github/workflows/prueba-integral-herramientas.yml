@@ -37,7 +37,7 @@ jobs:
           sleep 2
       - name: Probar herramientas en Chromium
         run: |
-          cat > /tmp/smoke.mjs <<'JS'
+          cat > smoke.mjs <<'JS'
           import { chromium } from 'playwright';
           const browser=await chromium.launch({headless:true});
           const page=await browser.newPage({viewport:{width:1600,height:1000}});
@@ -66,7 +66,7 @@ jobs:
             await test('Visualización: '+name,async()=>{const b=page.getByRole('button',{name,exact:true}).last();await b.scrollIntoViewIfNeeded();await b.click();await page.waitForTimeout(300);});
           }
           for(const name of ['Tabla','Metadatos','Reporte']){
-            await test('Ventana: '+name,async()=>{await page.getByRole('button',{name,exact:true}).click();await page.locator('.utilityModal').waitFor();await page.locator('.utilityModal header button').click();await page.locator('.utilityModal').waitFor({state:'detached'});});
+            await test('Ventana: '+name,async()=>{await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);const modal=page.locator('.utilityModal,.modal,.dialogWindow').last();await modal.waitFor({timeout:5000});const close=modal.getByRole('button',{name:/cerrar|×|x/i}).last();if(await close.count())await close.click();});
           }
           await test('SantIA comuna',async()=>{const ta=page.locator('.santiAsk textarea');await ta.fill('cuántos aparcadores hay en la comuna');await page.getByRole('button',{name:'Consultar'}).click();await page.waitForTimeout(600);const r=(await page.locator('.santiResponse').innerText()).trim();if(!r)throw new Error('SantIA sin respuesta');});
           await test('Activar Barrios sin reload',async()=>{const before=page.url();const label=page.getByText('Barrios',{exact:true}).first();await label.scrollIntoViewIfNeeded();await label.click();await page.waitForTimeout(1500);if(page.isClosed())throw new Error('Pagina cerrada');if(page.url()!==before)throw new Error('Navegacion/reload inesperado');});
@@ -80,7 +80,7 @@ jobs:
           await browser.close();
           if(failed.length||errors.length)process.exit(1);
           JS
-          node /tmp/smoke.mjs
+          node smoke.mjs
       - name: Subir captura final
         if: always()
         uses: actions/upload-artifact@v4
