@@ -27,22 +27,20 @@ def friendly(t):
 def geomlabel(g):
  u=(g or '').upper(); return 'Punto' if 'POINT' in u else ('Línea' if 'LINE' in u else 'Polígono')
 def pick(prefix):
- c=[p for p in SRC.rglob('*.gpkg') if p.name.startswith(prefix+'_') and '_VF' in p.name.upper()]
+ c=[p for p in SRC.rglob('*.gpkg') if re.match(rf'^{re.escape(prefix)}[-_]',p.name,re.I) and '_VF' in p.name.upper()]
  if not c: raise RuntimeError(f'No se encontró GPKG VF para dimensión {prefix}')
  return sorted(c,key=lambda p:p.stat().st_mtime,reverse=True)[0]
 def run(cmd):
  print('+',' '.join(map(str,cmd))); subprocess.run(list(map(str,cmd)),check=True)
 
 def layer_id(prefix,table):
- # conserva patrón estable de las dimensiones 02-04; 01/05 usan prefijo temático explícito.
  s=slug(table)
  if prefix in ('02','03','04'): return 'vf-'+s
  return 'vf-'+({'01':'urb','05':'ins'}[prefix])+'-'+s
 
 def safe_columns(con,table):
  cols=[r[1] for r in con.execute('pragma table_info("'+table.replace('"','""')+'")')]
- attrs=[c for c in cols if c.lower() not in ('geom','geometry') and not sensitive(c)]
- return attrs
+ return [c for c in cols if c.lower() not in ('geom','geometry') and not sensitive(c)]
 
 all_items=[]; layer_defs={}; manifests={}; report=[]
 (ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
@@ -54,7 +52,6 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
  outdir=ROOT/'public/data'/folder
  if outdir.exists(): shutil.rmtree(outdir)
  outdir.mkdir(parents=True)
- # elimina carpeta histórica alternativa para institucional
  if prefix=='05' and (ROOT/'public/data/administrativa').exists(): shutil.rmtree(ROOT/'public/data/administrativa')
  con=sqlite3.connect(dst)
  rows=con.execute("SELECT c.table_name,coalesce(g.geometry_type_name,''),coalesce(g.srs_id,c.srs_id) FROM gpkg_contents c LEFT JOIN gpkg_geometry_columns g ON c.table_name=g.table_name WHERE c.data_type='features' ORDER BY c.table_name").fetchall()
@@ -72,7 +69,6 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
   bad=[k for k in keys if sensitive(k)]
   if bad: raise RuntimeError(f'Campos sensibles aún publicados en {table}: {bad}')
   lid=layer_id(prefix,table); color=PALETTE[(idx+int(prefix))%len(PALETTE)]
-  # Bibliotecas usa id funcional histórico para SANTI/Herramientas y evita duplicado.
   mapid='bibliotecas' if table.upper()=='SOC_PTO_BIBLIOTECAS_VF_2025' else lid
   item={'table':table,'slug':slug(table),'geometry':gtype,'source_srid':srs,'records':count,'web_records':valid,'theme':theme,'dimension':dim,'sector':sector,'geojson':f'/data/{folder}/{fname}','gpkg':f'/data/gpkg/{canonical}','container':canonical,'id':lid,'mapId':mapid,'removed_sensitive':removed}
   manifest.append(item); all_items.append(item)
@@ -85,7 +81,6 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
  mp.write_text(json.dumps({'file':canonical,'total':len(manifest),'items':manifest},ensure_ascii=False,indent=2),encoding='utf-8')
  print(canonical,'capas',len(rows))
 
-# Actualiza bloques de capas sin tocar la lógica funcional reciente.
 s=PAGE.read_text(encoding='utf-8')
 main_defs=layer_defs['02']+layer_defs['03']+layer_defs['04']
 miss_defs=layer_defs['01']+layer_defs['05']
@@ -98,18 +93,15 @@ mblock=ms+'\n'+',\n'.join(miss_defs)+'\n '+me
 if ms in s and me in s:
  s=re.sub(re.escape(ms)+r'.*?'+re.escape(me),mblock,s,flags=re.S)
 else:
- # insertar antes del cierre del arreglo layers
  pos=s.find('\n];',s.find('const layers:Layer[]=['))
  if pos<0: raise RuntimeError('No se encontró cierre de layers')
  s=s[:pos]+',\n '+mblock+s[pos:]
-# Bibliotecas 7 -> 21, manteniendo id bibliotecas
 s=re.sub(r'\{id:"bibliotecas",name:"Bibliotecas 2025".*?\},',
  '{id:"bibliotecas",name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/sociocultural/soc-pto-bibliotecas-vf-2025.geojson`,color:"#2877a6",description:"Bibliotecas 2025 · cobertura vigente de 21 registros.",source:"03_DIM_SOCIOCULTURAL_VF.gpkg"},',s,count=1,flags=re.S)
 PAGE.write_text(s,encoding='utf-8')
 
-# Catálogo: conserva bases/no VF y reconstruye las cinco dimensiones desde las fuentes actuales.
 cat=json.loads(CAT.read_text(encoding='utf-8'))
-containers={x[1] for x in CFG}|{'05_DIM_ADMINISTRATIVA_VF.gpkg'}
+containers={x[1] for x in CFG}|{'05_DIM_ADMINISTRATIVA_VF.gpkg','01-DIM_URBANA_VF.gpkg'}
 base=[]
 for i in cat.get('items',[]):
  c=str(i.get('contenedor',''))
@@ -122,11 +114,9 @@ for it in all_items:
 cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-03'; cat['generatedFrom']='GeoPackage VF sanitizados 01-05'
 CAT.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
-# Borra GeoJSON antiguo de bibliotecas 7 registros si existe.
 old=ROOT/'public/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson'
 if old.exists(): old.unlink()
-
-(Path('/tmp/resync_report.json')).write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+Path('/tmp/resync_report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print('\nRESYNC OK capas=',len(all_items),'catalogo=',cat['total'])
 for x in report:
  if x['removed_sensitive']: print('PRIVACIDAD',x['table'],'omitidos web:',','.join(x['removed_sensitive']))
