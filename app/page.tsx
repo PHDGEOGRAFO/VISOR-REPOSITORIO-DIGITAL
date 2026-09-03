@@ -294,9 +294,7 @@ export default function Home(){
    if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;
    if(status[layer.id]==="cargando")return;
    setStatus(s=>({...s,[layer.id]:"cargando"}));
-   const layerFetch:Promise<GeoCollection>=layer.id==="manzana"
-   ?Promise.all(["CENTRO_ORIENTE","CENTRO_PONIENTE","NORORIENTE","NORPONIENTE","SURORIENTE","SURPONIENTE"].map(n=>fetch(`${BASE_PATH}/data/manzanas/${n}.geojson`).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}))).then(parts=>({type:"FeatureCollection",features:parts.flatMap((x:GeoCollection)=>x.features)} as GeoCollection))
-   :fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});
+   const layerFetch:Promise<GeoCollection>=fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});
    layerFetch.then((fc:GeoCollection)=>{
     let clean=fc;
     if(layer.id==="lineas-prc")clean={...fc,features:fc.features.filter(f=>f.geometry.type==="LineString"||f.geometry.type==="MultiLineString")};
