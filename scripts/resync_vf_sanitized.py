@@ -40,7 +40,8 @@ def layer_id(prefix,table):
 
 def safe_columns(con,table):
  cols=[r[1] for r in con.execute('pragma table_info("'+table.replace('"','""')+'")')]
- return [c for c in cols if c.lower() not in ('geom','geometry') and not sensitive(c)]
+ internal={'fid','ogc_fid','objectid','rowid','_rowid_'}
+ return [c for c in cols if c.lower() not in internal and c.lower() not in ('geom','geometry') and not sensitive(c)]
 
 all_items=[]; layer_defs={}; manifests={}; report=[]
 (ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
