@@ -40,3 +40,10 @@
 
 .dataOriginDescription{margin:3px 0 0;max-width:760px;font-size:12px;line-height:1.25;color:#dce8f5;font-weight:500}
 @media(max-width:1366px), (max-height:780px){.dataOriginDescription{font-size:11px;max-width:620px;line-height:1.2}}
+
+/* Logo institucional robusto */
+.municipalBrand{display:flex;align-items:center;gap:12px;min-width:0}
+.municipalBrand img{display:block;width:150px;max-width:24vw;height:48px;object-fit:contain;object-position:left center;flex:0 0 auto}
+.printInstitution img{display:block;width:130px;height:42px;object-fit:contain;object-position:left center}
+@media(max-width:1366px){.municipalBrand img{width:125px;max-width:22vw;height:42px}}
+@media(max-width:900px){.municipalBrand img{width:105px;max-width:30vw;height:38px}}
