@@ -1,0 +1,68 @@
+name: Resincronizar GeoPackage VF sanitizados
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/resincronizar-gpkg-sanitizados.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  resync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar GIS y descarga Drive
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin sqlite3
+          python -m pip install --break-system-packages gdown
+      - name: Descargar carpeta VF actual
+        run: |
+          rm -rf /tmp/vf && mkdir -p /tmp/vf
+          gdown --folder 'https://drive.google.com/drive/folders/1BEu1Vy6u8hrmu6r2v5hRE6TKupiaDbP7' -O /tmp/vf --remaining-ok
+          echo '=== GPKG encontrados ==='
+          find /tmp/vf -type f -iname '*.gpkg' -printf '%f %s bytes\n' | sort
+          for p in 01 02 03 04 05; do
+            test "$(find /tmp/vf -type f -iname "${p}_*_VF*.gpkg" | wc -l)" -ge 1 || { echo "Falta GeoPackage ${p}"; exit 1; }
+          done
+      - name: Resincronizar GPKG GeoJSON catálogo y capas
+        run: python scripts/resync_vf_sanitized.py
+      - name: Controles críticos
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('public/data/sociocultural/soc-pto-bibliotecas-vf-2025.geojson')
+          if not p.exists(): raise SystemExit('Falta Bibliotecas 2025')
+          n=len(json.loads(p.read_text(encoding='utf-8'))['features'])
+          if n!=21: raise SystemExit(f'Bibliotecas debe tener 21 registros, tiene {n}')
+          page=pathlib.Path('app/page.tsx').read_text(encoding='utf-8')
+          if 'Promedio n_per' in page: raise SystemExit('No se permite reintroducir Promedio n_per')
+          if 'Suma n_per' not in page: raise SystemExit('Falta Suma n_per')
+          if 'soc-pto-bibliotecas-vf-2025.geojson' not in page: raise SystemExit('Bibliotecas no quedó conectada')
+          report=json.loads(pathlib.Path('/tmp/resync_report.json').read_text(encoding='utf-8'))
+          print('Capas resincronizadas:',len(report))
+          print('Coberturas con campos sensibles omitidos en GeoJSON:',sum(bool(x['removed_sensitive']) for x in report))
+          print('Bibliotecas:',n)
+          PY
+          test ! -e public/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar actualización
+        run: |
+          git config user.name 'PHDGEOGRAFO'
+          git config user.email 'phernandezd@gmail.com'
+          git add -A app/page.tsx public/data public/catalog/index_coberturas.json
+          git status --short
+          git commit -m 'GIS: resincronizar capas desde GeoPackage VF sanitizados' || exit 0
+          git push
