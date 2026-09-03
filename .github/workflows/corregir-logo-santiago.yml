@@ -1,0 +1,50 @@
+name: Corregir logo Santiago
+
+on:
+  push:
+    paths:
+      - '.github/workflows/corregir-logo-santiago.yml'
+      - 'app/page.tsx'
+      - 'app/globals.css'
+      - 'public/logo-munistgo-fallback.svg'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-logo:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Corregir logo visible
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('src={`${BASE_PATH}/logo-munistgo.png`} alt="STGO Ilustre Municipalidad" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src=`${BASE_PATH}/logo-munistgo-fallback.svg`}}', 'src={`${BASE_PATH}/logo-munistgo-fallback.svg`} alt="STGO Ilustre Municipalidad de Santiago"')
+          s=s.replace('src={`${BASE_PATH}/logo-munistgo.png`} alt="Municipalidad de Santiago" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src=`${BASE_PATH}/logo-munistgo-fallback.svg`}}', 'src={`${BASE_PATH}/logo-munistgo-fallback.svg`} alt="Municipalidad de Santiago"')
+          p.write_text(s,encoding='utf-8')
+          css=Path('app/globals.css')
+          c=css.read_text(encoding='utf-8')
+          patch='''\n/* Logo institucional robusto */\n.municipalBrand{display:flex;align-items:center;gap:12px;min-width:0}\n.municipalBrand img{display:block;width:150px;max-width:24vw;height:48px;object-fit:contain;object-position:left center;flex:0 0 auto}\n.printInstitution img{display:block;width:130px;height:42px;object-fit:contain;object-position:left center}\n@media(max-width:1366px){.municipalBrand img{width:125px;max-width:22vw;height:42px}}\n@media(max-width:900px){.municipalBrand img{width:105px;max-width:30vw;height:38px}}\n'''
+          if '/* Logo institucional robusto */' not in c:
+              c += patch
+          css.write_text(c,encoding='utf-8')
+          PY
+      - name: Compilar
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar correccion
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/page.tsx app/globals.css
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix: cargar logo Santiago desde SVG estable"
+          git push
