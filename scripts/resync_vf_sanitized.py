@@ -70,25 +70,32 @@ def export_layer(dst,table,out,attrs,srs,ext,count):
  select=['-select',','.join(attrs)] if attrs else []
  if angular:
   cmd=['ogr2ogr','-f','GeoJSON','-a_srs','EPSG:4326']+common+select
-  run(cmd)
-  override=str(srs) not in ('4326','4258')
- else:
-  cmd=['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326']+common+select
   try:
-   run(cmd); override=False
+   run(cmd)
   except subprocess.CalledProcessError:
    if out.exists(): out.unlink()
-   print('REINTENTO_CRS',table,'la reproyección falló; se valida geometría real sin transformar')
-   fallback=['ogr2ogr','-f','GeoJSON','-a_srs','EPSG:4326']+common+select
+   return None
+  return str(srs) not in ('4326','4258')
+ cmd=['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326']+common+select
+ try:
+  run(cmd); return False
+ except subprocess.CalledProcessError:
+  if out.exists(): out.unlink()
+  print('REINTENTO_CRS',table,'la reproyección falló; se valida geometría real sin transformar')
+  fallback=['ogr2ogr','-f','GeoJSON','-a_srs','EPSG:4326']+common+select
+  try:
    run(fallback)
-   fc=json.loads(out.read_text(encoding='utf-8'))
-   if len(fc.get('features',[])) != count or not geojson_lonlat_ok(fc):
-    raise RuntimeError(f'CRS no resoluble con seguridad en {table}; no se publicará una geometría incompleta o fuera de WGS84')
-   override=True
-   print('CRS_CORREGIDO_GEOMETRIA',table,'srs_declarado=',srs,'-> coordenadas reales validadas como WGS84')
- return override
+  except subprocess.CalledProcessError:
+   if out.exists(): out.unlink()
+   return None
+  fc=json.loads(out.read_text(encoding='utf-8'))
+  if len(fc.get('features',[])) != count or not geojson_lonlat_ok(fc):
+   if out.exists(): out.unlink()
+   return None
+  print('CRS_CORREGIDO_GEOMETRIA',table,'srs_declarado=',srs,'-> coordenadas reales validadas como WGS84')
+  return True
 
-all_items=[]; layer_defs={}; manifests={}; report=[]
+all_items=[]; layer_defs={}; manifests={}; report=[]; skipped=[]
 (ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
 
 for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
@@ -109,6 +116,10 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
   fname=slug(table)+'.geojson'; out=outdir/fname
   ext=(minx,miny,maxx,maxy)
   override=export_layer(dst,table,out,attrs,srs,ext,count)
+  if override is None:
+   skipped.append({'gpkg':canonical,'table':table,'records':count,'reason':'CRS/geometría no exportable con seguridad a WGS84'})
+   print('OMITIDA_CRS',table,'registros=',count,'— no se publica geometría dudosa')
+   continue
   fc=json.loads(out.read_text(encoding='utf-8')); valid=len(fc.get('features',[]))
   if valid != count:
    raise RuntimeError(f'Exportación incompleta {table}: fuente={count}, web={valid}')
@@ -127,8 +138,8 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
  con.close()
  manifests[prefix]=manifest; layer_defs[prefix]=defs
  mp=outdir/f'manifest_{canonical[:-5].lower()}.json'
- mp.write_text(json.dumps({'file':canonical,'total':len(manifest),'items':manifest},ensure_ascii=False,indent=2),encoding='utf-8')
- print(canonical,'capas',len(rows))
+ mp.write_text(json.dumps({'file':canonical,'total':len(manifest),'items':manifest,'skipped':[x for x in skipped if x['gpkg']==canonical]},ensure_ascii=False,indent=2),encoding='utf-8')
+ print(canonical,'capas publicadas',len(manifest),'omitidas',len([x for x in skipped if x['gpkg']==canonical]))
 
 s=PAGE.read_text(encoding='utf-8')
 main_defs=layer_defs['02']+layer_defs['03']+layer_defs['04']
@@ -160,12 +171,13 @@ for i in cat.get('items',[]):
  base.append(i)
 for it in all_items:
  base.append({'id':it['id'],'mapId':it['mapId'],'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':geomlabel(it['geometry']),'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['web_records'],'registrosFuente':it['records'],'crs':('EPSG:4326 (coordenadas angulares validadas)' if it['crs_override_wgs84'] else f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)'),'verEnMapa':True,'download':it['geojson'],'observaciones':'Resincronizada desde GeoPackage VF sanitizado; campos sensibles eliminados en fuente no se republican.'})
-cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-03'; cat['generatedFrom']='GeoPackage VF sanitizados 01-05'
+cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-03'; cat['generatedFrom']='GeoPackage VF sanitizados 01-05'; cat['skippedInvalidGeometry']=skipped
 CAT.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
 old=ROOT/'public/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson'
 if old.exists(): old.unlink()
-Path('/tmp/resync_report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
-print('\nRESYNC OK capas=',len(all_items),'catalogo=',cat['total'])
+Path('/tmp/resync_report.json').write_text(json.dumps({'published':report,'skipped':skipped},ensure_ascii=False,indent=2),encoding='utf-8')
+print('\nRESYNC OK capas=',len(all_items),'omitidas=',len(skipped),'catalogo=',cat['total'])
 for x in report:
  if x['removed_sensitive']: print('PRIVACIDAD',x['table'],'omitidos web:',','.join(x['removed_sensitive']))
+for x in skipped: print('REVISAR_CRS',x['table'],x['reason'])
