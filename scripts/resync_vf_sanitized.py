@@ -48,6 +48,46 @@ def already_lonlat(ext):
  if any(v is None for v in ext): return False
  return -180.0 <= minx <= 180.0 and -180.0 <= maxx <= 180.0 and -90.0 <= miny <= 90.0 and -90.0 <= maxy <= 90.0
 
+def coord_pairs(obj):
+ if isinstance(obj,(list,tuple)):
+  if len(obj)>=2 and all(isinstance(x,(int,float)) for x in obj[:2]):
+   yield float(obj[0]),float(obj[1])
+  else:
+   for x in obj: yield from coord_pairs(x)
+
+def geojson_lonlat_ok(fc):
+ seen=False
+ for f in fc.get('features',[]):
+  g=f.get('geometry') or {}
+  for x,y in coord_pairs(g.get('coordinates')):
+   seen=True
+   if not (-180 <= x <= 180 and -90 <= y <= 90): return False
+ return seen or len(fc.get('features',[]))==0
+
+def export_layer(dst,table,out,attrs,srs,ext,count):
+ angular=already_lonlat(ext)
+ common=[str(out),str(dst),table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6']
+ select=['-select',','.join(attrs)] if attrs else []
+ if angular:
+  cmd=['ogr2ogr','-f','GeoJSON','-a_srs','EPSG:4326']+common+select
+  run(cmd)
+  override=str(srs) not in ('4326','4258')
+ else:
+  cmd=['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326']+common+select
+  try:
+   run(cmd); override=False
+  except subprocess.CalledProcessError:
+   if out.exists(): out.unlink()
+   print('REINTENTO_CRS',table,'la reproyección falló; se valida geometría real sin transformar')
+   fallback=['ogr2ogr','-f','GeoJSON','-a_srs','EPSG:4326']+common+select
+   run(fallback)
+   fc=json.loads(out.read_text(encoding='utf-8'))
+   if len(fc.get('features',[])) != count or not geojson_lonlat_ok(fc):
+    raise RuntimeError(f'CRS no resoluble con seguridad en {table}; no se publicará una geometría incompleta o fuera de WGS84')
+   override=True
+   print('CRS_CORREGIDO_GEOMETRIA',table,'srs_declarado=',srs,'-> coordenadas reales validadas como WGS84')
+ return override
+
 all_items=[]; layer_defs={}; manifests={}; report=[]
 (ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
 
@@ -68,30 +108,22 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
   removed=[r[1] for r in con.execute('pragma table_info("'+table.replace('"','""')+'")') if sensitive(r[1])]
   fname=slug(table)+'.geojson'; out=outdir/fname
   ext=(minx,miny,maxx,maxy)
-  angular=already_lonlat(ext)
-  cmd=['ogr2ogr','-f','GeoJSON']
-  if angular:
-   cmd += ['-a_srs','EPSG:4326']
-   if str(srs) not in ('4326','4258'):
-    print('CRS_CORREGIDO',table,'srs_declarado=',srs,'extent=',ext,'-> tratar coordenadas como WGS84')
-  else:
-   cmd += ['-t_srs','EPSG:4326']
-  cmd += [str(out),str(dst),table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6']
-  if attrs: cmd += ['-select',','.join(attrs)]
-  run(cmd)
+  override=export_layer(dst,table,out,attrs,srs,ext,count)
   fc=json.loads(out.read_text(encoding='utf-8')); valid=len(fc.get('features',[]))
   if valid != count:
    raise RuntimeError(f'Exportación incompleta {table}: fuente={count}, web={valid}')
+  if not geojson_lonlat_ok(fc):
+   raise RuntimeError(f'Coordenadas fuera de WGS84 en {table}')
   keys=sorted({k for f in fc.get('features',[])[:1000] for k in (f.get('properties') or {}).keys()})
   bad=[k for k in keys if sensitive(k)]
   if bad: raise RuntimeError(f'Campos sensibles aún publicados en {table}: {bad}')
   lid=layer_id(prefix,table); color=PALETTE[(idx+int(prefix))%len(PALETTE)]
   mapid='bibliotecas' if table.upper()=='SOC_PTO_BIBLIOTECAS_VF_2025' else lid
-  item={'table':table,'slug':slug(table),'geometry':gtype,'source_srid':srs,'records':count,'web_records':valid,'theme':theme,'dimension':dim,'sector':sector,'geojson':f'/data/{folder}/{fname}','gpkg':f'/data/gpkg/{canonical}','container':canonical,'id':lid,'mapId':mapid,'removed_sensitive':removed,'crs_override_wgs84':bool(angular and str(srs) not in ('4326','4258'))}
+  item={'table':table,'slug':slug(table),'geometry':gtype,'source_srid':srs,'records':count,'web_records':valid,'theme':theme,'dimension':dim,'sector':sector,'geojson':f'/data/{folder}/{fname}','gpkg':f'/data/gpkg/{canonical}','container':canonical,'id':lid,'mapId':mapid,'removed_sensitive':removed,'crs_override_wgs84':override}
   manifest.append(item); all_items.append(item)
   if mapid!='bibliotecas':
    defs.append(f' {{id:"{lid}",name:{json.dumps(friendly(table),ensure_ascii=False)},theme:"{theme}",geometry:"{geomlabel(gtype)}",url:`${{BASE_PATH}}/data/{folder}/{fname}`,color:"{color}",description:{json.dumps("Cobertura publicada desde "+canonical+".",ensure_ascii=False)},source:"{canonical}"}}')
-  report.append({'gpkg':canonical,'table':table,'records':count,'fields_web':len(keys),'removed_sensitive':removed,'source_srid':srs,'extent':ext,'crs_override_wgs84':bool(angular and str(srs) not in ('4326','4258'))})
+  report.append({'gpkg':canonical,'table':table,'records':count,'fields_web':len(keys),'removed_sensitive':removed,'source_srid':srs,'extent':ext,'crs_override_wgs84':override})
  con.close()
  manifests[prefix]=manifest; layer_defs[prefix]=defs
  mp=outdir/f'manifest_{canonical[:-5].lower()}.json'
@@ -127,7 +159,7 @@ for i in cat.get('items',[]):
  if 'biblioteca' in n and ('7' in str(i.get('registros','')) or i.get('mapId')=='bibliotecas'): continue
  base.append(i)
 for it in all_items:
- base.append({'id':it['id'],'mapId':it['mapId'],'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':geomlabel(it['geometry']),'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['web_records'],'registrosFuente':it['records'],'crs':('EPSG:4326 (coordenadas angulares detectadas)' if it['crs_override_wgs84'] else f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)'),'verEnMapa':True,'download':it['geojson'],'observaciones':'Resincronizada desde GeoPackage VF sanitizado; campos sensibles eliminados en fuente no se republican.'})
+ base.append({'id':it['id'],'mapId':it['mapId'],'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':geomlabel(it['geometry']),'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['web_records'],'registrosFuente':it['records'],'crs':('EPSG:4326 (coordenadas angulares validadas)' if it['crs_override_wgs84'] else f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)'),'verEnMapa':True,'download':it['geojson'],'observaciones':'Resincronizada desde GeoPackage VF sanitizado; campos sensibles eliminados en fuente no se republican.'})
 cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-03'; cat['generatedFrom']='GeoPackage VF sanitizados 01-05'
 CAT.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
