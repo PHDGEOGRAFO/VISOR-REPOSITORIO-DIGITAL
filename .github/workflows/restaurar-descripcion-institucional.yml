@@ -1,0 +1,55 @@
+name: Restaurar descripcion institucional
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restaurar-descripcion-institucional.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restaurar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Restaurar descripcion bajo titulo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          text='Información territorial elaborada a partir de antecedentes proporcionados por direcciones y oficinas municipales, levantamientos propios, catastros, encuestas y otras fuentes afines.'
+          if text not in s:
+              old='<div className="brand"><h1>Visor Territorial</h1><p className="officeLabel">Repositorio Territorial Digital · Municipalidad de Santiago</p></div>'
+              new=f'<div className="brand"><h1>Visor Territorial</h1><p className="officeLabel">Repositorio Territorial Digital · Municipalidad de Santiago</p><p className="dataOriginDescription">{text}</p></div>'
+              if old not in s: raise SystemExit('No se encontro cabecera esperada')
+              s=s.replace(old,new,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Agregar estilo responsive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/globals.css')
+          s=p.read_text(encoding='utf-8')
+          rule='''\n.dataOriginDescription{margin:3px 0 0;max-width:760px;font-size:12px;line-height:1.25;color:#dce8f5;font-weight:500}\n@media(max-width:1366px), (max-height:780px){.dataOriginDescription{font-size:11px;max-width:620px;line-height:1.2}}\n'''
+          if '.dataOriginDescription{' not in s:
+              s+=rule
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/globals.css
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'UI: restaurar descripcion institucional del origen de datos'
+          git push origin main
