@@ -23,6 +23,35 @@ main{min-width:0;max-width:100vw}
 .santiAsk{min-width:0}
 .santiAsk textarea{min-width:0;max-width:100%;resize:vertical}
 
+/* Tipografía general ampliada para lectura cómoda en computador y notebook. */
+.analysisTools{font-size:12px!important}
+.analysisTools>b,.selectionBlock>b,.visualBlock>b{font-size:12.5px!important;line-height:1.35!important}
+.activeCoverage label,.selectionBlock label,.visualBlock label,.isoControls label{font-size:11.5px!important;line-height:1.35!important}
+.analysisTools small,.selectionBlock small,.visualBlock small,.activeCoverage small{font-size:10.2px!important;line-height:1.5!important}
+.analysisTools select,.analysisTools button,.analysisTools input{font-size:11.5px!important}
+.analysisResult strong{font-size:12px!important}
+
+.sidebar{font-size:11px!important}
+.sidebar .catalogHelp b,.sidebarSearch label,.dimensionList strong,.openFullIndex{font-size:11px!important}
+.sidebar .catalogHelp p,.sidebarSearch small,.dimensionList small,.sidebarResults small{font-size:9.8px!important;line-height:1.45!important}
+.sidebarSearch input,.sidebarResults b,.dimensionList b{font-size:10.8px!important}
+
+.inspector{font-size:11.5px!important}
+.inspector>.kicker,.featureDetails .kicker{font-size:9.8px!important}
+.inspector .title h2{font-size:22px!important}
+.inspector .title p,.inspector>p,.santiDescription{font-size:10.8px!important;line-height:1.5!important}
+.summary div{font-size:11px!important}
+.santiHead b{font-size:21px!important}
+.santiHead span{font-size:10px!important}
+.santiResponse,.santiAsk textarea,.santiAsk button{font-size:11.5px!important;line-height:1.5!important}
+.featureDetails strong{font-size:9.8px!important}
+.featureDetails span{font-size:10.8px!important}
+
+.layerControl{font-size:10.5px!important}
+.layerControl>b{font-size:10px!important}
+.layerControl label{font-size:10px!important}
+.layerControl small{font-size:9px!important;line-height:1.4!important}
+
 /* Notebook estándar: aprovecha mejor 1366×768, 1280×720 y similares. */
 @media (max-width:1400px){
   .workspace{grid-template-columns:250px minmax(360px,1fr) 280px!important}
@@ -79,12 +108,12 @@ main{min-width:0;max-width:100vw}
   .layerControl{left:8px!important;bottom:8px!important;max-width:calc(100% - 16px)}
 }
 
-/* En pantallas de baja altura, reducir densidad sin esconder funciones. */
+/* En pantallas de muy baja altura se conserva el aumento, pero se compacta suavemente. */
 @media (max-height:620px) and (min-width:761px){
-  .analysisTools{font-size:9.5px!important}
-  .analysisTools>b,.selectionBlock>b,.visualBlock>b{font-size:10px!important}
-  .analysisTools small,.selectionBlock small,.visualBlock small,.activeCoverage small{font-size:8.5px!important;line-height:1.3!important}
-  .analysisTools select,.analysisTools button{font-size:9.5px!important;padding-top:5px!important;padding-bottom:5px!important}
+  .analysisTools{font-size:10.5px!important}
+  .analysisTools>b,.selectionBlock>b,.visualBlock>b{font-size:11px!important}
+  .analysisTools small,.selectionBlock small,.visualBlock small,.activeCoverage small{font-size:9.2px!important;line-height:1.35!important}
+  .analysisTools select,.analysisTools button{font-size:10.5px!important;padding-top:5px!important;padding-bottom:5px!important}
 }
 
 @media print{
