@@ -1,0 +1,52 @@
+name: Auditar campos de desagregación
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'public/data/**/*.geojson'
+      - '.github/workflows/auditar-campos-desagregacion.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comparar esquema completo vs primeros 500 registros
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('public/data')
+          files=list(root.rglob('*.geojson'))
+          affected=[]; parsed=0; total_fields=set()
+          for p in files:
+              try:
+                  data=json.loads(p.read_text(encoding='utf-8'))
+              except Exception:
+                  continue
+              feats=data.get('features') or []
+              if not feats: continue
+              parsed+=1
+              def keys(rows):
+                  out=set()
+                  for f in rows:
+                      props=f.get('properties') or {}
+                      out.update(str(k) for k in props.keys())
+                  return out
+              allk=keys(feats); sample=keys(feats[:500]); total_fields.update(allk)
+              missing=sorted(allk-sample)
+              if missing: affected.append((str(p),len(feats),missing))
+          print(f'GeoJSON revisados con registros: {parsed}')
+          print(f'Campos distintos encontrados: {len(total_fields)}')
+          if affected:
+              print('COBERTURAS CON CAMPOS FUERA DE LOS PRIMEROS 500:')
+              for p,n,missing in affected:
+                  print(f'- {p} ({n} registros): {", ".join(missing)}')
+              raise SystemExit(f'{len(affected)} coberturas requieren ampliar detección de campos')
+          print('OK: ningún campo queda fuera por la muestra de 500 registros.')
+          PY
