@@ -1,0 +1,83 @@
+name: Actualizar Bibliotecas 21
+
+on:
+  push:
+    paths:
+      - '.github/workflows/actualizar-bibliotecas-21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar GDAL y SQLite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin sqlite3
+      - name: Localizar cobertura de Bibliotecas con 21 registros
+        shell: bash
+        run: |
+          set -euo pipefail
+          GPKG='public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg'
+          echo 'Capas candidatas:'
+          ogrinfo -ro -so "$GPKG" | grep -Ei 'BIB|BIBLIO' || true
+          mapfile -t TABLES < <(sqlite3 "$GPKG" "SELECT table_name FROM gpkg_contents WHERE data_type='features' AND (upper(table_name) LIKE '%BIB%' OR upper(identifier) LIKE '%BIB%');")
+          : > /tmp/candidatas.txt
+          for t in "${TABLES[@]}"; do
+            n=$(sqlite3 "$GPKG" "SELECT COUNT(*) FROM \"$t\";")
+            echo "$t|$n" | tee -a /tmp/candidatas.txt
+          done
+          TABLE=$(awk -F'|' '$2==21{print $1; exit}' /tmp/candidatas.txt)
+          if [ -z "$TABLE" ]; then
+            echo 'ERROR: no existe una capa de Bibliotecas/BIB con exactamente 21 registros en el GeoPackage.'
+            cat /tmp/candidatas.txt
+            exit 1
+          fi
+          echo "TABLE=$TABLE" >> "$GITHUB_ENV"
+          echo "Cobertura vigente: $TABLE (21 registros)"
+      - name: Exportar GeoJSON vigente
+        run: |
+          rm -f public/data/sociocultural/soc-pto-bibliotecas-vigente.geojson
+          ogr2ogr -f GeoJSON -t_srs EPSG:4326 public/data/sociocultural/soc-pto-bibliotecas-vigente.geojson public/data/gpkg/03_DIM_SOCIOCULTURAL_VF.gpkg "$TABLE"
+          COUNT=$(python3 - <<'PY'
+          import json
+          p='public/data/sociocultural/soc-pto-bibliotecas-vigente.geojson'
+          with open(p,encoding='utf-8') as f: j=json.load(f)
+          print(len(j.get('features',[])))
+          PY
+          )
+          test "$COUNT" = '21'
+          echo "GeoJSON vigente exportado: $COUNT registros"
+      - name: Eliminar GeoJSON obsoletos de 7 registros
+        run: |
+          rm -f public/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson
+          rm -f public/data/sociocultural/soc-pto-bibliotecas-2024.geojson
+      - name: Actualizar referencia principal del visor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('name:"Bibliotecas 2025",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson`', 'name:"Bibliotecas",theme:"SOC",geometry:"Punto",url:`${BASE_PATH}/data/sociocultural/soc-pto-bibliotecas-vigente.geojson`')
+          s=s.replace('url:`${BASE_PATH}/data/sociocultural/soc-pto-bibliotecas-2024.geojson`', 'url:`${BASE_PATH}/data/sociocultural/soc-pto-bibliotecas-vigente.geojson`')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar actualización
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Sin cambios que guardar.'
+          else
+            git commit -m 'Visor: reemplazar Bibliotecas 7 por cobertura vigente de 21 registros'
+            git push
+          fi
