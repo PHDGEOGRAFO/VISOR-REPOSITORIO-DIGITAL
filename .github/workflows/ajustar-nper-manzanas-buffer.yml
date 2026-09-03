@@ -1,0 +1,89 @@
+name: Ajustar n_per Manzanas INE 2024 y Buffer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/ajustar-nper-manzanas-buffer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  ajustar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Aplicar cambios funcionales
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Manzana INE/Censo 2024 con join poblacional por COD_MZN.
+          old='{id:"manzana",name:"Manzanas · Censo 2024",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/manzanas.geojson`,color:"#71808a",description:"Base censal de manzanas. COD_MZN es la llave y n_per la población para cálculos.",source:"00_BASE_TERRITORIAL_VF.gpkg / Censo 2024"}'
+          new='{id:"manzana",name:"Manzanas INE · Censo 2024",theme:"BASE",geometry:"Polígono",url:`${BASE_PATH}/data/manzanas.geojson`,color:"#71808a",description:"Manzanas censales INE 2024. COD_MZN es la llave y n_per corresponde a personas para cálculos por polígono y buffer.",source:"INE · Censo 2024",populationJoin:true}'
+          if old not in s:
+              raise SystemExit('No se encontró definición esperada de la capa manzana')
+          s=s.replace(old,new,1)
+
+          # 2) Eliminar Promedio n_per de activación y dejar Buffer cargando Manzanas.
+          old='useEffect(()=>{if(analysis==="Suma n_per"||analysis==="Promedio n_per"){setActive(a=>a.includes("manzana")?a:[...a,"manzana"]);setSelectionMode("Polígono")}},[analysis]);'
+          new='useEffect(()=>{if(analysis==="Suma n_per"){setActive(a=>a.includes("manzana")?a:[...a,"manzana"]);setSelectionMode("Polígono")}else if(analysis==="Buffer"){setActive(a=>a.includes("manzana")?a:[...a,"manzana"]) }},[analysis]);'
+          if old not in s:
+              raise SystemExit('No se encontró efecto Suma/Promedio esperado')
+          s=s.replace(old,new,1)
+
+          # 3) Helper de buffer geodésico circular para intersección real con manzanas.
+          marker='function uniqueNames(fc:GeoCollection|undefined,keys:string[])'
+          helper='''function circleBufferPolygon(center:number[],radiusM:number,steps=48){const R=6371008.8,lat1=center[1]*Math.PI/180,lon1=center[0]*Math.PI/180,d=radiusM/R,ring:number[][]=[];for(let i=0;i<=steps;i++){const br=2*Math.PI*i/steps,lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(br)),lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));ring.push([lon2*180/Math.PI,lat2*180/Math.PI])}return{type:"Polygon",coordinates:[ring]} as any}\n'''
+          if helper.strip() not in s:
+              if marker not in s: raise SystemExit('No se encontró marcador para helper buffer')
+              s=s.replace(marker,helper+marker,1)
+
+          # 4) Quitar promedio y calcular población de manzanas intersectadas por buffer.
+          old='const manzanasAnalisis=polygon?featuresInPolygon(data.manzana??empty,polygon):[];\n const nperValues=manzanasAnalisis.map(f=>Number(f.properties.n_per)).filter(Number.isFinite),nperSum=nperValues.reduce((a,b)=>a+b,0),pointCount=selectedData.features.filter(f=>f.geometry.type==="Point").length;'
+          new='const manzanasAnalisis=polygon?featuresInPolygon(data.manzana??empty,polygon):[];\n const nperSum=manzanasAnalisis.reduce((a,f)=>a+(Number(f.properties.n_per)||0),0),pointCount=selectedData.features.filter(f=>f.geometry.type==="Point").length;'
+          if old not in s: raise SystemExit('No se encontró bloque nperValues esperado')
+          s=s.replace(old,new,1)
+
+          old='const bufferCount=useMemo(()=>{if(analysis!=="Buffer"||!pointAnchors.length)return null;return selectedData.features.filter(f=>f.geometry.type==="Point"&&pointAnchors.some(o=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])<=radius)).length},[analysis,pointAnchors,selectedData,radius]);\n const analysisResult=analysis==="Suma n_per"?(polygon?`${nperSum.toLocaleString("es-CL")} personas · ${manzanasAnalisis.length.toLocaleString("es-CL")} manzanas Censo 2024`:`Dibuje un polígono · Base: Manzanas Censo 2024 · campo n_per`):analysis==="Promedio n_per"?(polygon?`${(nperValues.length?nperSum/nperValues.length:0).toLocaleString("es-CL",{maximumFractionDigits:1})} promedio · ${manzanasAnalisis.length.toLocaleString("es-CL")} manzanas Censo 2024`:`Dibuje un polígono · Base: Manzanas Censo 2024 · campo n_per`):analysis==="Densidad"?`${(pointCount/23.18).toFixed(1)} puntos/km²`:analysis==="Buffer"?(bufferCount!=null?`${bufferCount.toLocaleString("es-CL")} registros dentro de ${radius.toLocaleString("es-CL")} m desde ${pointAnchors.length} punto(s) seleccionado(s)`:`Seleccione uno o varios puntos de ${selectedLayer.name}`):analysis==="Proximidad"?(nearestDistance!=null?`${Math.round(nearestDistance).toLocaleString("es-CL")} m al punto más cercano`:`Seleccione un punto en el mapa`):analysis==="Isócronas"?`${isoMode} · ${isoMinutes} min${streets.features.length?" · red cargada":" · cargando red…"}`:`${sourceFeatures.length.toLocaleString("es-CL")} registros`;'
+          new='const bufferCount=useMemo(()=>{if(analysis!=="Buffer"||!pointAnchors.length)return null;return selectedData.features.filter(f=>f.geometry.type==="Point"&&pointAnchors.some(o=>distanceMeters(o.geometry.coordinates as number[],f.geometry.coordinates as number[])<=radius)).length},[analysis,pointAnchors,selectedData,radius]);\n const bufferManzanas=useMemo(()=>{if(analysis!=="Buffer"||!pointAnchors.length)return[];const circles=pointAnchors.map(o=>circleBufferPolygon(o.geometry.coordinates as number[],radius));return (data.manzana?.features??[]).filter(f=>(f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon")&&circles.some(c=>intersectsPolygon(f.geometry,c)))},[analysis,pointAnchors,data.manzana,radius]);\n const bufferNperSum=bufferManzanas.reduce((a,f)=>a+(Number(f.properties.n_per)||0),0);\n const analysisResult=analysis==="Suma n_per"?(polygon?`${nperSum.toLocaleString("es-CL")} personas · ${manzanasAnalisis.length.toLocaleString("es-CL")} manzanas INE Censo 2024`:`Dibuje un polígono · Base: Manzanas INE Censo 2024 · campo n_per`):analysis==="Densidad"?`${(pointCount/23.18).toFixed(1)} puntos/km²`:analysis==="Buffer"?(bufferCount!=null?`${bufferCount.toLocaleString("es-CL")} registros · ${bufferNperSum.toLocaleString("es-CL")} personas · ${bufferManzanas.length.toLocaleString("es-CL")} manzanas INE 2024 intersectadas por buffer de ${radius.toLocaleString("es-CL")} m`:`Seleccione uno o varios puntos de ${selectedLayer.name}`):analysis==="Proximidad"?(nearestDistance!=null?`${Math.round(nearestDistance).toLocaleString("es-CL")} m al punto más cercano`:`Seleccione un punto en el mapa`):analysis==="Isócronas"?`${isoMode} · ${isoMinutes} min${streets.features.length?" · red cargada":" · cargando red…"}`:`${sourceFeatures.length.toLocaleString("es-CL")} registros`;'
+          if old not in s: raise SystemExit('No se encontró bloque Buffer/analysisResult esperado')
+          s=s.replace(old,new,1)
+
+          # 5) Quitar opción Promedio n_per del selector y referencias de impresión.
+          s=s.replace('<option>Suma n_per</option><option>Promedio n_per</option>','<option>Suma n_per</option>')
+          s=s.replace('(analysis==="Suma n_per"||analysis==="Promedio n_per")','analysis==="Suma n_per"')
+
+          # Validaciones de seguridad.
+          if 'Promedio n_per' in s:
+              raise SystemExit('Aún quedan referencias a Promedio n_per')
+          if 'populationJoin:true' not in s:
+              raise SystemExit('No quedó activo populationJoin en manzana')
+          if 'bufferNperSum' not in s:
+              raise SystemExit('No quedó cálculo poblacional de Buffer')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Commit cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios'
+          else
+            git commit -m 'GIS: usar Manzanas INE 2024 para suma n_per y buffer'
+            git push origin main
+          fi
