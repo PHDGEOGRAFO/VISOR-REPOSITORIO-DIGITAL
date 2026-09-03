@@ -14,7 +14,7 @@ CFG=[
  ('05','05_DIM_INSTITUCIONAL_VF.gpkg','institucional','INS','DIMENSIÓN INSTITUCIONAL','Gestión municipal y activos institucionales','#6b5a83'),
 ]
 PALETTE=['#386f8a','#7b5685','#5c7a43','#9a623f','#4b6d9a','#8a4f64','#6f7f3f','#825c45','#526f78','#7a5b3a']
-SENSITIVE=['rut','run','email','correo','mail','telefono','fono','celular','contacto','responsable','encargado','propietario','titular','dueno','dueño','apellido','fecha_nac','nacimiento','clave','password','contrasena','contraseña','presidente','secretario','tesorero','c__de_id','c_de_id']
+SENSITIVE=['rut','run','email','correo','mail','telefono','fono','celular','contacto','responsable','encargado','propietario','propietari','titular','dueno','dueño','apellido','fecha_nac','nacimiento','clave','password','contrasena','contraseña','presidente','secretario','tesorero','c__de_id','c_de_id']
 
 def norm(s): return ''.join(c for c in unicodedata.normalize('NFD',str(s).lower()) if unicodedata.category(c)!='Mn')
 def slug(s): return re.sub(r'-+','-',re.sub(r'[^a-z0-9]+','-',norm(s))).strip('-')
@@ -40,8 +40,13 @@ def layer_id(prefix,table):
 
 def safe_columns(con,table):
  cols=[r[1] for r in con.execute('pragma table_info("'+table.replace('"','""')+'")')]
- internal={'fid','ogc_fid','objectid','rowid','_rowid_'}
+ internal={'fid','ogc_fid','objectid','rowid','_rowid_','_rowid'}
  return [c for c in cols if c.lower() not in internal and c.lower() not in ('geom','geometry') and not sensitive(c)]
+
+def already_lonlat(ext):
+ minx,miny,maxx,maxy=ext
+ if any(v is None for v in ext): return False
+ return -180.0 <= minx <= 180.0 and -180.0 <= maxx <= 180.0 and -90.0 <= miny <= 90.0 and -90.0 <= maxy <= 90.0
 
 all_items=[]; layer_defs={}; manifests={}; report=[]
 (ROOT/'public/data/gpkg').mkdir(parents=True,exist_ok=True)
@@ -55,27 +60,38 @@ for prefix,canonical,folder,theme,dim,sector,basecolor in CFG:
  outdir.mkdir(parents=True)
  if prefix=='05' and (ROOT/'public/data/administrativa').exists(): shutil.rmtree(ROOT/'public/data/administrativa')
  con=sqlite3.connect(dst)
- rows=con.execute("SELECT c.table_name,coalesce(g.geometry_type_name,''),coalesce(g.srs_id,c.srs_id) FROM gpkg_contents c LEFT JOIN gpkg_geometry_columns g ON c.table_name=g.table_name WHERE c.data_type='features' ORDER BY c.table_name").fetchall()
+ rows=con.execute("SELECT c.table_name,coalesce(g.geometry_type_name,''),coalesce(g.srs_id,c.srs_id),c.min_x,c.min_y,c.max_x,c.max_y FROM gpkg_contents c LEFT JOIN gpkg_geometry_columns g ON c.table_name=g.table_name WHERE c.data_type='features' ORDER BY c.table_name").fetchall()
  manifest=[]; defs=[]
- for idx,(table,gtype,srs) in enumerate(rows):
+ for idx,(table,gtype,srs,minx,miny,maxx,maxy) in enumerate(rows):
   count=con.execute('SELECT COUNT(*) FROM "'+table.replace('"','""')+'"').fetchone()[0]
   attrs=safe_columns(con,table)
   removed=[r[1] for r in con.execute('pragma table_info("'+table.replace('"','""')+'")') if sensitive(r[1])]
   fname=slug(table)+'.geojson'; out=outdir/fname
-  cmd=['ogr2ogr','-f','GeoJSON','-t_srs','EPSG:4326',str(out),str(dst),table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6']
+  ext=(minx,miny,maxx,maxy)
+  angular=already_lonlat(ext)
+  cmd=['ogr2ogr','-f','GeoJSON']
+  if angular:
+   cmd += ['-a_srs','EPSG:4326']
+   if str(srs) not in ('4326','4258'):
+    print('CRS_CORREGIDO',table,'srs_declarado=',srs,'extent=',ext,'-> tratar coordenadas como WGS84')
+  else:
+   cmd += ['-t_srs','EPSG:4326']
+  cmd += [str(out),str(dst),table,'-lco','RFC7946=YES','-lco','COORDINATE_PRECISION=6']
   if attrs: cmd += ['-select',','.join(attrs)]
   run(cmd)
   fc=json.loads(out.read_text(encoding='utf-8')); valid=len(fc.get('features',[]))
+  if valid != count:
+   raise RuntimeError(f'Exportación incompleta {table}: fuente={count}, web={valid}')
   keys=sorted({k for f in fc.get('features',[])[:1000] for k in (f.get('properties') or {}).keys()})
   bad=[k for k in keys if sensitive(k)]
   if bad: raise RuntimeError(f'Campos sensibles aún publicados en {table}: {bad}')
   lid=layer_id(prefix,table); color=PALETTE[(idx+int(prefix))%len(PALETTE)]
   mapid='bibliotecas' if table.upper()=='SOC_PTO_BIBLIOTECAS_VF_2025' else lid
-  item={'table':table,'slug':slug(table),'geometry':gtype,'source_srid':srs,'records':count,'web_records':valid,'theme':theme,'dimension':dim,'sector':sector,'geojson':f'/data/{folder}/{fname}','gpkg':f'/data/gpkg/{canonical}','container':canonical,'id':lid,'mapId':mapid,'removed_sensitive':removed}
+  item={'table':table,'slug':slug(table),'geometry':gtype,'source_srid':srs,'records':count,'web_records':valid,'theme':theme,'dimension':dim,'sector':sector,'geojson':f'/data/{folder}/{fname}','gpkg':f'/data/gpkg/{canonical}','container':canonical,'id':lid,'mapId':mapid,'removed_sensitive':removed,'crs_override_wgs84':bool(angular and str(srs) not in ('4326','4258'))}
   manifest.append(item); all_items.append(item)
   if mapid!='bibliotecas':
    defs.append(f' {{id:"{lid}",name:{json.dumps(friendly(table),ensure_ascii=False)},theme:"{theme}",geometry:"{geomlabel(gtype)}",url:`${{BASE_PATH}}/data/{folder}/{fname}`,color:"{color}",description:{json.dumps("Cobertura publicada desde "+canonical+".",ensure_ascii=False)},source:"{canonical}"}}')
-  report.append({'gpkg':canonical,'table':table,'records':count,'fields_web':len(keys),'removed_sensitive':removed})
+  report.append({'gpkg':canonical,'table':table,'records':count,'fields_web':len(keys),'removed_sensitive':removed,'source_srid':srs,'extent':ext,'crs_override_wgs84':bool(angular and str(srs) not in ('4326','4258'))})
  con.close()
  manifests[prefix]=manifest; layer_defs[prefix]=defs
  mp=outdir/f'manifest_{canonical[:-5].lower()}.json'
@@ -111,7 +127,7 @@ for i in cat.get('items',[]):
  if 'biblioteca' in n and ('7' in str(i.get('registros','')) or i.get('mapId')=='bibliotecas'): continue
  base.append(i)
 for it in all_items:
- base.append({'id':it['id'],'mapId':it['mapId'],'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':geomlabel(it['geometry']),'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['web_records'],'registrosFuente':it['records'],'crs':f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)','verEnMapa':True,'download':it['geojson'],'observaciones':'Resincronizada desde GeoPackage VF sanitizado; campos sensibles eliminados en fuente no se republican.'})
+ base.append({'id':it['id'],'mapId':it['mapId'],'tema':it['theme'],'dimensionPladeco':it['dimension'],'sector':it['sector'],'nombre':friendly(it['table']),'carpeta':it['container'][:-5],'geometria':geomlabel(it['geometry']),'escala':'Comuna','contenedor':it['container'],'tipoContenedor':'GeoPackage VF','subcapa':it['table'],'campoClave':'','estado':'PUBLICADA','validacion':'VALIDADA PARA VISUALIZACIÓN','registros':it['web_records'],'registrosFuente':it['records'],'crs':('EPSG:4326 (coordenadas angulares detectadas)' if it['crs_override_wgs84'] else f'EPSG:{it["source_srid"]} (fuente) / EPSG:4326 (web)'),'verEnMapa':True,'download':it['geojson'],'observaciones':'Resincronizada desde GeoPackage VF sanitizado; campos sensibles eliminados en fuente no se republican.'})
 cat['items']=base; cat['total']=len(base); cat['generatedAt']='2026-09-03'; cat['generatedFrom']='GeoPackage VF sanitizados 01-05'
 CAT.write_text(json.dumps(cat,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 
