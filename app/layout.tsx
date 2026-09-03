@@ -4,13 +4,14 @@ import "./spatial.css";
 import "./map-gray.css";
 import "./recovery.css";
 import "./floating-windows.css";
+import "./source-note.css";
 import FloatingWindows from "./FloatingWindows";
 import TextEncodingRepair from "./TextEncodingRepair";
 import GeoJsonSanitizer from "./GeoJsonSanitizer";
 
 export const metadata:Metadata={
   title:"Visor Territorial · Municipalidad de Santiago",
-  description:"Repositorio Territorial Digital y análisis de coberturas de la comuna de Santiago.",
+  description:"Información territorial elaborada a partir de antecedentes proporcionados por direcciones y oficinas municipales, levantamientos propios, catastros, encuestas y otras fuentes afines.",
   icons:{icon:"/VISOR-REPOSITORIO-DIGITAL/favicon.svg"}
 };
 
