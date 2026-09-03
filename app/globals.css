@@ -37,3 +37,6 @@
 
 /* Control de descargas VF y columna de acciones */
 .coverageIndex th:last-child,.coverageIndex td:last-child{position:sticky;right:0;z-index:2;background:#fffefa;min-width:225px;box-shadow:-4px 0 8px #102c2712}.coverageIndex th:last-child{z-index:4;background:#173f38;color:#fff}.indexActions{min-width:205px}.indexActions .downloadAction{display:inline-flex!important;align-items:center;justify-content:center;min-width:82px;font-weight:700}.indexActions .downloadAction:before{content:"↓ ";font-weight:900}
+
+.dataOriginDescription{margin:3px 0 0;max-width:760px;font-size:12px;line-height:1.25;color:#dce8f5;font-weight:500}
+@media(max-width:1366px), (max-height:780px){.dataOriginDescription{font-size:11px;max-width:620px;line-height:1.2}}
