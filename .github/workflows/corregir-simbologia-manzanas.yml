@@ -1,0 +1,65 @@
+name: Corregir simbologia de manzanas
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/corregir-simbologia-manzanas.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar simbologia basada en atributos reales
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          old=''' const disaggregateFields=useMemo(()=>visualizationFields.filter(k=>selectedData.features.some(x=>x.properties?.[k]!=null&&String(x.properties?.[k]).trim()!=="")),[selectedData,visualizationFields]);\n const sourceFeatures='''
+          new=''' const disaggregateFields=useMemo(()=>visualizationFields.filter(k=>selectedData.features.some(x=>x.properties?.[k]!=null&&String(x.properties?.[k]).trim()!=="")),[selectedData,visualizationFields]);\n const autoClassificationField=useMemo(()=>{if(selectedLayer.geometry!=="Polígono")return "";const explicit=disaggregateFields.find(k=>{const n=normFieldName(k);return n==="rango"||n==="nivel"||n.startsWith("rango_")||n.startsWith("nivel_")||n.endsWith("_rango")||n.endsWith("_nivel")});if(explicit)return explicit;return disaggregateFields.find(k=>{const n=normFieldName(k);return n==="norm"||n.endsWith("_norm")||n.includes("normaliz")})||""},[selectedLayer.geometry,disaggregateFields]);\n const effectiveCategoryField=disaggregateField||autoClassificationField;\n const sourceFeatures='''
+          if old not in s:
+              raise SystemExit('No se encontro bloque disaggregateFields')
+          s=s.replace(old,new,1)
+          old2='categoryField={disaggregateField||undefined}'
+          new2='categoryField={effectiveCategoryField||undefined}'
+          if old2 not in s:
+              raise SystemExit('No se encontro categoryField')
+          s=s.replace(old2,new2,1)
+          # Mostrar qué atributo gobierna la simbología automática cuando no hay selección manual.
+          needle='''<small>Se ofrecen todos los campos disponibles de la cobertura para desagregación, excepto campos sensibles. El resumen muestra solo las primeras categorías para mantener buen rendimiento.</small>'''
+          repl=needle+'''{!disaggregateField&&autoClassificationField&&<small><b>Simbología automática:</b> {autoClassificationField}. Puede cambiarla desde “Desagregar por”.</small>}'''
+          if needle in s:
+              s=s.replace(needle,repl,1)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text(encoding='utf-8')
+          old=''' const categoryColor=(f:GeoFeature,base:string)=>{if(!categoryField)return base;const v=String(f.properties?.[categoryField]??"Sin dato");let h=0;for(const c of v)h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 58% 45%)`};'''
+          new=''' const categoryColor=(f:GeoFeature,base:string)=>{if(!categoryField)return base;const raw=f.properties?.[categoryField];if(raw==null||String(raw).trim()==="")return "#c7cdd1";const field=categoryField.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");const num=Number(raw);if(Number.isFinite(num)&&(field==="norm"||field.endsWith("_norm")||field.includes("normaliz"))){const v=Math.max(0,Math.min(1,num));return `hsl(210 62% ${88-v*48}%)`}const v=String(raw),n=v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");if(n.includes("muy bajo"))return "hsl(210 35% 88%)";if(n==="bajo"||n.includes(" bajo"))return "hsl(210 42% 74%)";if(n.includes("medio"))return "hsl(210 50% 60%)";if(n==="alto"||n.includes(" alto"))return "hsl(210 58% 46%)";if(n.includes("muy alto"))return "hsl(210 65% 32%)";let h=0;for(const c of v)h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 50% 48%)`};'''
+          if old not in s:
+              raise SystemExit('No se encontro categoryColor')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar build
+        run: |
+          npm ci
+          npx next build --webpack
+      - name: Guardar correccion
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx app/InteractiveMap.tsx
+          if git diff --cached --quiet; then
+            echo 'Sin cambios pendientes'
+            exit 0
+          fi
+          git commit -m 'Visor: clasificar polígonos por rango nivel o valor normalizado'
+          git push
