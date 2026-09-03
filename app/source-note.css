@@ -1,0 +1,17 @@
+.institutionalHeader .officeLabel::after {
+  content: "Información territorial elaborada a partir de antecedentes proporcionados por direcciones y oficinas municipales, levantamientos propios, catastros, encuestas y otras fuentes afines.";
+  display: block;
+  margin-top: 4px;
+  max-width: 720px;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 400;
+  opacity: 0.82;
+}
+
+@media (max-width: 900px) {
+  .institutionalHeader .officeLabel::after {
+    max-width: 520px;
+    font-size: 10px;
+  }
+}
