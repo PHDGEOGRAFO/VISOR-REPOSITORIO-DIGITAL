@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'app/**'
       - '.github/workflows/prueba-integral-herramientas.yml'
   workflow_dispatch:
 
@@ -66,7 +67,16 @@ jobs:
             await test('Visualización: '+name,async()=>{const b=page.getByRole('button',{name,exact:true}).last();await b.scrollIntoViewIfNeeded();await b.click();await page.waitForTimeout(300);});
           }
           for(const name of ['Tabla','Metadatos','Reporte']){
-            await test('Ventana: '+name,async()=>{await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);const modal=page.locator('.utilityModal,.modal,.dialogWindow').last();await modal.waitFor({timeout:5000});const close=modal.getByRole('button',{name:/cerrar|×|x/i}).last();if(await close.count())await close.click();});
+            await test('Ventana: '+name,async()=>{
+              await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);
+              const modal=page.locator('.utilityModal').last();await modal.waitFor({timeout:5000});
+              const before=await modal.boundingBox();if(!before)throw new Error('Ventana sin dimensiones');
+              const header=modal.locator('header');const hb=await header.boundingBox();if(!hb)throw new Error('Sin cabecera movible');
+              await page.mouse.move(hb.x+80,hb.y+20);await page.mouse.down();await page.mouse.move(hb.x+125,hb.y+55,{steps:4});await page.mouse.up();
+              const after=await modal.boundingBox();if(!after||Math.abs(after.x-before.x)<10)throw new Error('La ventana no se desplazó');
+              const min=modal.getByRole('button',{name:'Minimizar / restaurar'});await min.click();await page.waitForTimeout(120);if(!(await modal.evaluate(el=>el.classList.contains('floatingMinimized'))))throw new Error('No minimiza');await min.click();
+              const close=header.locator('button').last();await close.click();await modal.waitFor({state:'detached'});
+            });
           }
           await test('SantIA comuna',async()=>{const ta=page.locator('.santiAsk textarea');await ta.fill('cuántos aparcadores hay en la comuna');await page.getByRole('button',{name:'Consultar'}).click();await page.waitForTimeout(600);const r=(await page.locator('.santiResponse').innerText()).trim();if(!r)throw new Error('SantIA sin respuesta');});
           await test('Activar Barrios sin reload',async()=>{const before=page.url();const label=page.getByText('Barrios',{exact:true}).first();await label.scrollIntoViewIfNeeded();await label.click();await page.waitForTimeout(1500);if(page.isClosed())throw new Error('Pagina cerrada');if(page.url()!==before)throw new Error('Navegacion/reload inesperado');});
