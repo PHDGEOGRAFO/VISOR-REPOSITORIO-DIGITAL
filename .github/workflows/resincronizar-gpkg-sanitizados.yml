@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/resincronizar-gpkg-sanitizados.yml'
+      - 'scripts/resync_vf_sanitized.py'
   workflow_dispatch:
 
 permissions:
