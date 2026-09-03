@@ -32,7 +32,7 @@ jobs:
           echo '=== GPKG encontrados ==='
           find /tmp/vf -type f -iname '*.gpkg' -printf '%f %s bytes\n' | sort
           for p in 01 02 03 04 05; do
-            test "$(find /tmp/vf -type f -iname "${p}_*_VF*.gpkg" | wc -l)" -ge 1 || { echo "Falta GeoPackage ${p}"; exit 1; }
+            test "$(find /tmp/vf -type f \( -iname "${p}_*_VF*.gpkg" -o -iname "${p}-*_VF*.gpkg" \) | wc -l)" -ge 1 || { echo "Falta GeoPackage ${p}"; exit 1; }
           done
       - name: Resincronizar GPKG GeoJSON catálogo y capas
         run: python scripts/resync_vf_sanitized.py
