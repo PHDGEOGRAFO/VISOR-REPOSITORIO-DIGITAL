@@ -81,3 +81,5 @@ jobs:
             git commit -m 'Visor: reemplazar Bibliotecas 7 por cobertura vigente de 21 registros'
             git push
           fi
+
+# activación de validación 2026-09-03
