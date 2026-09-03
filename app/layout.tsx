@@ -5,6 +5,7 @@ import "./map-gray.css";
 import "./recovery.css";
 import "./floating-windows.css";
 import "./source-note.css";
+import "./responsive.css";
 import FloatingWindows from "./FloatingWindows";
 import TextEncodingRepair from "./TextEncodingRepair";
 import GeoJsonSanitizer from "./GeoJsonSanitizer";
