@@ -6,6 +6,7 @@ on:
     paths:
       - 'public/logo-munistgo-fallback.svg'
       - '.github/workflows/corregir-logo-visor.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,25 +18,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Corregir carga del logo
         shell: python
         run: |
           from pathlib import Path
           p=Path('app/page.tsx')
           s=p.read_text(encoding='utf-8')
-          old='<img src="./logo-munistgo.png" alt="STGO Ilustre Municipalidad"/>'
-          new='<img src={`${BASE_PATH}/logo-munistgo.png`} alt="STGO Ilustre Municipalidad" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src=`${BASE_PATH}/logo-munistgo-fallback.svg`}}/>'
-          if old not in s:
-              raise SystemExit('No se encontró logo principal a reemplazar')
-          s=s.replace(old,new,1)
-          old2='<img src={`${BASE_PATH}/logo-munistgo.png`} alt="Municipalidad de Santiago"/>'
-          new2='<img src={`${BASE_PATH}/logo-munistgo.png`} alt="Municipalidad de Santiago" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src=`${BASE_PATH}/logo-munistgo-fallback.svg`}}/>'
-          if old2 in s:
-              s=s.replace(old2,new2,1)
-          p.write_text(s,encoding='utf-8')
+          old='${BASE_PATH}/logo-munistgo-fallback.svg'
+          new='${BASE_PATH}/logo-munistgo.png'
+          n=s.count(old)
+          if n:
+              s=s.replace(old,new)
+              p.write_text(s,encoding='utf-8')
+              print(f'Logo oficial aplicado en {n} referencia(s)')
+          else:
+              print('Logo oficial ya estaba aplicado; no hay cambios')
       - name: Validar build
         run: |
           npm ci
@@ -46,5 +43,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/page.tsx
           git diff --cached --quiet && exit 0
-          git commit -m "Visor: corregir carga del logo municipal"
+          git commit -m "Visor: usar logo municipal oficial"
           git push
