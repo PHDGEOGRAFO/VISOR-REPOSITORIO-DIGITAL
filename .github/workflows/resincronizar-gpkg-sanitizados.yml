@@ -122,3 +122,5 @@ jobs:
           git status --short
           git commit -m 'GIS: publicar 11 capas depuradas y actualizar índices' || exit 0
           git push
+
+# Sincronización solicitada 2026-09-04: Aseo DOM (recorridos + áreas).
