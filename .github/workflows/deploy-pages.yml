@@ -44,6 +44,8 @@ jobs:
           s=s.replace('<strong>{k}</strong><span>{String(v??"Sin dato")}</span>','<strong>{displayFieldName(k)}</strong><span>{String(v??"Sin dato")}</span>')
           old='style={{background:`hsl(${(Math.abs([...v].reduce((a,c)=>a+c.charCodeAt(0),0))*47)%360} 58% 45%)`}}'
           s=s.replace(old,'style={{background:categoryLegendColor(v,disaggregateField)}}')
+          if 'Manual de uso</a>' not in s:
+            s=s.replace('>Ayuda</button><button onClick={printPdf}>PDF</button>', '>Ayuda</button><a href={`${BASE_PATH}/manual-uso-visor.html`} download="Manual_uso_Visor_Territorial.html" style={{display:"inline-flex",alignItems:"center",padding:"0 12px",border:"1px solid #ffffff55",color:"#fff",textDecoration:"none",fontSize:"11px",fontWeight:700}}>Manual de uso</a><button onClick={printPdf}>PDF</button>')
           p.write_text(s,encoding='utf-8')
 
           css=Path('app/globals.css')
@@ -79,4 +81,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# 2026-09-04: GPKG maestro en G/Drive; descargas por cobertura y simbología mapa/leyenda unificada.
+# 2026-09-04: GPKG maestro en G/Drive; descargas por cobertura, simbologia unificada y manual de uso.
