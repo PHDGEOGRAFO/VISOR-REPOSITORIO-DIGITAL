@@ -43,4 +43,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# redeploy 2026-09-03: geometría completa y simbología por atributos reales
+# redeploy 2026-09-04: catálogo GIS actualizado + logo municipal oficial
