@@ -61,9 +61,9 @@ jobs:
             c=con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
             srs=con.execute('SELECT srs_id FROM gpkg_geometry_columns WHERE table_name=?',(t,)).fetchone()
             if c!=n: raise SystemExit(f'{t}: esperado {n}, encontrado {c}')
-            if not srs or int(srs[0])!=4326: raise SystemExit(f'{t}: CRS no es EPSG:4326 en maestro {fname}')
+            if not srs or int(srs[0]) not in (32719,4326): raise SystemExit(f'{t}: CRS maestro no reconocido en {fname}: {srs}')
             con.close()
-          print('11/11 capas corregidas presentes en los cuatro VF maestros y en EPSG:4326')
+          print('11/11 capas corregidas presentes en los cuatro VF maestros; CRS maestro GIS validado')
           PY
       - name: Ajustar filtro de privacidad y fecha de índice
         run: |
@@ -114,7 +114,7 @@ jobs:
           git config user.email 'phernandezd@gmail.com'
           git add -A app/page.tsx public/data public/catalog/index_coberturas.json
           git status --short
-          git commit -m 'GIS: publicar 11 capas depuradas y actualizar índices' || exit 0
+          git commit -m 'GIS: publicar maestros VF y actualizar índices' || exit 0
           git push
 
-# Sincronización solicitada 2026-09-04: Aseo DOM (recorridos + áreas).
+# Arquitectura 2026-09-04: GPKG maestro en G/Drive; GeoJSON temático solo derivado técnico web.
