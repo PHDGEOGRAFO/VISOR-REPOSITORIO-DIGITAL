@@ -1,11 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" role="img" aria-label="STGO Ilustre Municipalidad de Santiago">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 150" role="img" aria-label="Municipalidad de Santiago">
   <rect width="520" height="150" fill="#ffffff"/>
-  <g transform="translate(18 18)">
-    <rect x="0" y="0" width="92" height="92" rx="8" fill="#072E6D"/>
-    <path d="M22 24h48v10H22zm0 20h48v10H22zm0 20h30v10H22z" fill="#ffffff"/>
-    <rect x="58" y="64" width="12" height="28" fill="#F7B500"/>
-  </g>
-  <text x="128" y="58" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#072E6D">STGO Ilustre</text>
-  <text x="128" y="96" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600" fill="#072E6D">Municipalidad de Santiago</text>
-  <text x="128" y="124" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#5d6876">Secretaría Comunal de Planificación</text>
+  <image href="/VISOR-REPOSITORIO-DIGITAL/logo-munistgo.png" x="0" y="0" width="520" height="150" preserveAspectRatio="xMidYMid meet"/>
 </svg>
