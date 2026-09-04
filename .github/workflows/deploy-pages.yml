@@ -32,12 +32,18 @@ jobs:
           s=s.replace('function itemDimension(i:IndexItem){return (i as any).dimensionPladeco||"POR CLASIFICAR"}','function itemDimension(i:IndexItem){return String((i as any).dimensionPladeco||"POR CLASIFICAR").replace("DIMENSIÓN ECONÓMICA","DIMENSIÓN ECONOMICA")}')
           if 'function displayFieldName(' not in s:
             s=s.replace('function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}', 'function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}\nfunction displayFieldName(v:string){return String(v||"").replace(/^CSV_/i,"")}')
+          if 'function categoryLegendColor(' not in s:
+            anchor='function displayFieldName(v:string){return String(v||"").replace(/^CSV_/i,"")}'
+            helper='''function categoryLegendColor(raw:any,fieldName:string){if(raw==null||String(raw).trim()==="")return "#c7cdd1";const field=String(fieldName||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");const num=Number(raw);if(Number.isFinite(num)&&(field==="norm"||field.endsWith("_norm")||field.includes("normaliz"))){const v=Math.max(0,Math.min(1,num));return `hsl(210 62% ${88-v*48}%)`}const v=String(raw),n=v.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");if(n.includes("muy bajo"))return "hsl(210 35% 88%)";if(n==="bajo"||n.includes(" bajo"))return "hsl(210 42% 74%)";if(n.includes("medio"))return "hsl(210 50% 60%)";if(n==="alto"||n.includes(" alto"))return "hsl(210 58% 46%)";if(n.includes("muy alto"))return "hsl(210 65% 32%)";let h=0;for(const c of v)h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 50% 48%)`}'''
+            s=s.replace(anchor,anchor+'\n'+helper)
           s=s.replace('<option key={f} value={f}>{f}</option>','<option key={f} value={f}>{displayFieldName(f)}</option>')
           s=s.replace('<b>Campo: {disaggregateField}</b>','<b>Campo: {displayFieldName(disaggregateField)}</b>')
           s=s.replace('<strong>Desagregación · {disaggregateField}</strong>','<strong>Desagregación · {displayFieldName(disaggregateField)}</strong>')
           s=s.replace('` · Desagregado por ${disaggregateField}`','` · Desagregado por ${displayFieldName(disaggregateField)}`')
           s=s.replace('<th key={f}>{f}</th>','<th key={f}>{displayFieldName(f)}</th>')
           s=s.replace('<strong>{k}</strong><span>{String(v??"Sin dato")}</span>','<strong>{displayFieldName(k)}</strong><span>{String(v??"Sin dato")}</span>')
+          old='style={{background:`hsl(${(Math.abs([...v].reduce((a,c)=>a+c.charCodeAt(0),0))*47)%360} 58% 45%)`}}'
+          s=s.replace(old,'style={{background:categoryLegendColor(v,disaggregateField)}}')
           p.write_text(s,encoding='utf-8')
 
           css=Path('app/globals.css')
@@ -73,4 +79,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# 2026-09-04: GPKG maestro en G/Drive; las descargas del índice se generan por cobertura individual.
+# 2026-09-04: GPKG maestro en G/Drive; descargas por cobertura y simbología mapa/leyenda unificada.
