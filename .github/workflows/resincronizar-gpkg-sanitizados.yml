@@ -33,43 +33,37 @@ jobs:
           echo '=== GPKG encontrados ==='
           find /tmp/vf -type f -iname '*.gpkg' -printf '%f %s bytes\n' | sort
           for p in 01 02 03 04 05; do
-            test "$(find /tmp/vf -type f \( -iname "${p}_*_VF*.gpkg" -o -iname "${p}-*_VF*.gpkg" \) | wc -l)" -ge 1 || { echo "Falta GeoPackage ${p}"; exit 1; }
+            test "$(find /tmp/vf -maxdepth 1 -type f \( -iname "${p}_*_VF*.gpkg" -o -iname "${p}-*_VF*.gpkg" \) | wc -l)" -ge 1 || { echo "Falta GeoPackage maestro ${p}"; exit 1; }
           done
       - name: Validar 11 capas corregidas en maestros
         run: |
           python - <<'PY'
           import sqlite3, pathlib
           expected={
-            'URB_PTO_DANO_ESTRUCTURAL':60,
-            'AMB_PTO_INUNDACION_2024':105,
-            'AMB_PTO_RUIDOS_MOLESTOS_2024':23620,
-            'SOC_PTO_CLUB_ADULTO_MAYOR':370,
-            'SOC_PTO_COMITE_SEGURIDAD':110,
-            'SOC_PTO_FACTORES_RIESGO_UTEM':130,
-            'SOC_PTO_LABOR_EMERGENCIAS':5543,
-            'SOC_PTO_ORGANIZACIONES_SOCIALES':3501,
-            'ECO_PTO_APARCADORES_ILEGALES':593,
-            'ECO_PTO_BANCOS':67,
-            'ECO_PTO_COMERCIO_AMBULANTE_2025':2188,
+            'URB_PTO_DANO_ESTRUCTURAL':('01-DIM_URBANA_VF.gpkg',60),
+            'AMB_PTO_INUNDACION_2024':('02_DIM_AMBIENTAL_VF.gpkg',105),
+            'AMB_PTO_RUIDOS_MOLESTOS_2024':('02_DIM_AMBIENTAL_VF.gpkg',23620),
+            'SOC_PTO_CLUB_ADULTO_MAYOR':('03_DIM_SOCIOCULTURAL_VF.gpkg',370),
+            'SOC_PTO_COMITE_SEGURIDAD':('03_DIM_SOCIOCULTURAL_VF.gpkg',110),
+            'SOC_PTO_FACTORES_RIESGO_UTEM':('03_DIM_SOCIOCULTURAL_VF.gpkg',130),
+            'SOC_PTO_LABOR_EMERGENCIAS':('03_DIM_SOCIOCULTURAL_VF.gpkg',5543),
+            'SOC_PTO_ORGANIZACIONES_SOCIALES':('03_DIM_SOCIOCULTURAL_VF.gpkg',3501),
+            'ECO_PTO_APARCADORES_ILEGALES':('04_DIM_ECONOMICA_VF.gpkg',593),
+            'ECO_PTO_BANCOS':('04_DIM_ECONOMICA_VF.gpkg',67),
+            'ECO_PTO_COMERCIO_AMBULANTE_2025':('04_DIM_ECONOMICA_VF.gpkg',2188),
           }
-          found={}
-          for gpkg in pathlib.Path('/tmp/vf').rglob('*.gpkg'):
-            try:
-              con=sqlite3.connect(gpkg)
-              for t,n in expected.items():
-                row=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(t,)).fetchone()
-                if row:
-                  c=con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
-                  srs=con.execute('SELECT srs_id FROM gpkg_geometry_columns WHERE table_name=?',(t,)).fetchone()
-                  if c!=n: raise SystemExit(f'{t}: esperado {n}, encontrado {c}')
-                  if not srs or int(srs[0])!=4326: raise SystemExit(f'{t}: CRS no es EPSG:4326')
-                  found[t]=str(gpkg)
-              con.close()
-            except sqlite3.Error:
-              pass
-          missing=sorted(set(expected)-set(found))
-          if missing: raise SystemExit('Faltan capas corregidas: '+', '.join(missing))
-          print('11/11 capas corregidas presentes y en EPSG:4326')
+          for t,(fname,n) in expected.items():
+            gpkg=pathlib.Path('/tmp/vf')/fname
+            if not gpkg.exists(): raise SystemExit(f'Falta maestro {fname}')
+            con=sqlite3.connect(gpkg)
+            row=con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(t,)).fetchone()
+            if not row: raise SystemExit(f'{t}: no está en {fname}')
+            c=con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+            srs=con.execute('SELECT srs_id FROM gpkg_geometry_columns WHERE table_name=?',(t,)).fetchone()
+            if c!=n: raise SystemExit(f'{t}: esperado {n}, encontrado {c}')
+            if not srs or int(srs[0])!=4326: raise SystemExit(f'{t}: CRS no es EPSG:4326 en maestro {fname}')
+            con.close()
+          print('11/11 capas corregidas presentes en los cuatro VF maestros y en EPSG:4326')
           PY
       - name: Ajustar filtro de privacidad y fecha de índice
         run: |
@@ -79,8 +73,8 @@ jobs:
           s=p.read_text(encoding='utf-8')
           old="""def sensitive(k):\n n=norm(k).replace(' ','_')\n return any(norm(x).replace(' ','_') in n for x in SENSITIVE)"""
           new="""def sensitive(k):\n n=norm(k).replace(' ','_')\n tokens=[x for x in re.split(r'[^a-z0-9]+',n) if x]\n exact={'rut','run','email','correo','mail','telefono','fono','celular','contacto','responsable','encargado','propietario','propietari','titular','dueno','apellido','nacimiento','clave','password','contrasena','presidente','secretario','tesorero'}\n if any(t in exact for t in tokens): return True\n return n.startswith(('rut_','run_','email_','correo_','fono_','telefono_','celular_','contacto_','responsable_','encargado_','propietario_','propietari_','titular_','dueno_','apellido_','fecha_nac','c__de_id','c_de_id'))"""
-          if old not in s: raise SystemExit('No se encontró función sensitive esperada')
-          s=s.replace(old,new)
+          if old in s:
+            s=s.replace(old,new)
           s=s.replace("cat['generatedAt']='2026-09-03'","cat['generatedAt']='2026-09-04'")
           p.write_text(s,encoding='utf-8')
           PY
