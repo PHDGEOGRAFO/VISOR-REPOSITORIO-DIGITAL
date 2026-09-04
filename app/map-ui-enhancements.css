@@ -1,0 +1,22 @@
+/* Principio cartografico: toda simbologia debe contrastar claramente con el fondo gris. */
+.mapNavigationBar{position:absolute;z-index:80;top:12px;right:12px;display:flex;gap:4px;padding:5px;background:#073879f2;border:1px solid #ffffff55;border-radius:5px;box-shadow:0 4px 14px #0004}
+.mapNavigationBar button{width:34px;height:32px;border:1px solid #ffffff66;border-radius:4px;background:#fff;color:#073879;font-size:18px;font-weight:800;display:grid;place-items:center;cursor:pointer;line-height:1}
+.mapNavigationBar button:hover{background:#ffbd00;color:#073879;border-color:#ffbd00}
+.interactiveMap.panMode{cursor:grab!important}.interactiveMap.panMode:active{cursor:grabbing!important}
+.analysisTools>.analysisDragHandle{display:block;cursor:move!important;user-select:none;padding:5px 22px 5px 5px;position:relative}
+.analysisTools>.analysisDragHandle:after{content:"↕";position:absolute;right:4px;top:3px;font-size:13px;opacity:.65}
+.analysisTools{max-width:min(290px,92vw)!important}
+
+/* Contraste minimo para puntos, lineas y categorias sobre el fondo gris. */
+.interactiveMap [data-layer] circle{stroke:#fff!important;stroke-width:2px!important;filter:drop-shadow(0 0 1.5px #111)}
+.interactiveMap [data-layer] path{filter:drop-shadow(0 0 .8px #fff)}
+.interactiveMap [data-layer] path[fill="none"]{stroke-width:2px;}
+.categorySummary i,.printLegend i{outline:1px solid #25313b;outline-offset:0}
+
+/* El cuadro de clave siempre queda delante del indice de descargas y otros modales. */
+.downloadAuthBackdrop{z-index:30000!important;pointer-events:auto!important}
+.downloadAuthDialog{z-index:30001!important;position:relative!important}
+.coverageIndex{z-index:5000!important}.indexBackdrop{z-index:4900!important}
+
+@media(max-width:900px){.mapNavigationBar{top:8px;right:8px}.mapNavigationBar button{width:31px;height:30px;font-size:16px}}
+@media print{.mapNavigationBar{display:none!important}.analysisTools>.analysisDragHandle:after{display:none!important}}
