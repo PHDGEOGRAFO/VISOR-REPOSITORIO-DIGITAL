@@ -1,17 +1,14 @@
-/* Encabezado adaptable: evita que CATÁLOGO y sus cifras queden fuera de pantalla. */
+/* Encabezado compacto y equilibrado del Visor Territorial */
 .institutionalHeader{
   box-sizing:border-box!important;
   width:100%!important;
+  min-height:78px!important;
   height:auto!important;
-  min-height:82px!important;
-  padding:7px 12px!important;
+  padding:7px 10px!important;
   display:grid!important;
-  grid-template-columns:minmax(280px,34%) minmax(360px,1fr) auto!important;
-  grid-template-areas:
-    "municipal title actions"
-    "municipal title scope"!important;
+  grid-template-columns:minmax(300px,36%) minmax(320px,1fr) auto!important;
+  grid-template-areas:"municipal title actions"!important;
   column-gap:14px!important;
-  row-gap:3px!important;
   align-items:center!important;
   overflow:visible!important;
 }
@@ -19,19 +16,17 @@
   grid-area:municipal!important;
   min-width:0!important;
   width:100%!important;
-  max-width:440px!important;
+  max-width:none!important;
   overflow:hidden!important;
 }
 .institutionalHeader .municipalBrand img{
-  width:min(180px,14vw)!important;
-  max-width:180px!important;
+  width:min(155px,12vw)!important;
+  max-width:155px!important;
   height:auto!important;
   object-fit:contain!important;
   flex:0 0 auto!important;
 }
-.institutionalHeader .municipalBrand>div{
-  min-width:0!important;
-}
+.institutionalHeader .municipalBrand>div{min-width:0!important}
 .institutionalHeader .municipalBrand strong,
 .institutionalHeader .municipalBrand small{
   white-space:normal!important;
@@ -41,108 +36,117 @@
   grid-area:title!important;
   min-width:0!important;
   align-self:center!important;
+  padding:0 6px!important;
 }
 .institutionalHeader .brand h1{
   margin:0!important;
   line-height:1.05!important;
+  font-size:22px!important;
 }
-.institutionalHeader .brand .officeLabel,
+.institutionalHeader .brand .officeLabel{
+  margin:2px 0 0!important;
+  line-height:1.2!important;
+  font-size:8px!important;
+}
 .institutionalHeader .brand .dataOriginDescription{
-  max-width:100%!important;
-  margin-top:3px!important;
-  line-height:1.25!important;
+  max-width:780px!important;
+  margin:5px 0 0!important;
+  line-height:1.28!important;
+  font-size:10px!important;
+  opacity:.9!important;
 }
 .institutionalHeader .topActions{
   grid-area:actions!important;
   justify-self:end!important;
-  align-self:end!important;
+  align-self:center!important;
   display:flex!important;
   flex-wrap:wrap!important;
   justify-content:flex-end!important;
   gap:5px!important;
-  min-width:0!important;
+  min-width:210px!important;
+  max-width:310px!important;
+  padding:0!important;
 }
-.institutionalHeader .topActions button{
+.institutionalHeader .topActions button,
+.institutionalHeader .topActions a{
   white-space:nowrap!important;
 }
 .institutionalHeader .scope{
-  grid-area:scope!important;
-  justify-self:end!important;
-  align-self:start!important;
+  position:absolute!important;
+  right:12px!important;
+  bottom:5px!important;
   margin:0!important;
-  padding:2px 0 0 10px!important;
-  min-width:max-content!important;
-  max-width:100%!important;
+  padding:0!important;
   display:flex!important;
   flex-direction:row!important;
   align-items:baseline!important;
-  gap:6px!important;
+  gap:5px!important;
   white-space:nowrap!important;
   overflow:visible!important;
 }
 .institutionalHeader .scope span,
-.institutionalHeader .scope b{
-  display:inline!important;
-  visibility:visible!important;
-  opacity:1!important;
-  overflow:visible!important;
+.institutionalHeader .scope b{display:inline!important;visibility:visible!important;opacity:1!important}
+
+/* La clave de descarga siempre debe quedar por encima del Índice y otros modales. */
+.downloadAuthBackdrop{
+  z-index:10000!important;
+  pointer-events:auto!important;
+}
+.downloadAuthDialog{
+  position:relative!important;
+  z-index:10001!important;
 }
 
-/* Notebook típico: CATÁLOGO baja bajo los botones y sigue siempre visible. */
-@media (max-width:1450px){
+/* Notebook y pantallas medianas: se mantiene todo en una franja útil. */
+@media (max-width:1180px){
   .institutionalHeader{
-    grid-template-columns:minmax(250px,31%) minmax(330px,1fr) minmax(220px,auto)!important;
-    column-gap:10px!important;
-    padding:6px 10px!important;
+    grid-template-columns:minmax(250px,33%) minmax(300px,1fr) minmax(190px,auto)!important;
+    grid-template-areas:"municipal title actions"!important;
+    column-gap:9px!important;
+    min-height:82px!important;
+    padding:6px 8px!important;
   }
-  .institutionalHeader .municipalBrand img{
-    width:min(150px,12vw)!important;
-  }
-  .institutionalHeader .topActions button{
-    padding-left:9px!important;
-    padding-right:9px!important;
-  }
+  .institutionalHeader .municipalBrand img{width:min(135px,11vw)!important}
+  .institutionalHeader .brand h1{font-size:20px!important}
+  .institutionalHeader .brand .dataOriginDescription{font-size:9px!important;line-height:1.22!important}
+  .institutionalHeader .topActions{min-width:180px!important;max-width:235px!important;gap:4px!important}
+  .institutionalHeader .topActions button,
+  .institutionalHeader .topActions a{padding-left:8px!important;padding-right:8px!important;font-size:8px!important}
 }
 
-/* Pantallas angostas: dos filas completas, sin recortar el contador. */
-@media (max-width:1120px){
+/* Tablet / ventana angosta: título y descripción aprovechan la primera fila; acciones abajo. */
+@media (max-width:900px){
   .institutionalHeader{
-    grid-template-columns:minmax(230px,36%) 1fr!important;
+    grid-template-columns:minmax(235px,38%) 1fr!important;
     grid-template-areas:
       "municipal title"
-      "actions scope"!important;
-    row-gap:6px!important;
+      "actions actions"!important;
+    row-gap:5px!important;
+    min-height:104px!important;
   }
-  .institutionalHeader .municipalBrand{
-    max-width:100%!important;
-  }
+  .institutionalHeader .municipalBrand img{width:120px!important}
   .institutionalHeader .topActions{
-    justify-self:start!important;
-    align-self:center!important;
+    justify-self:stretch!important;
+    max-width:none!important;
+    min-width:0!important;
+    justify-content:flex-end!important;
+    padding-top:3px!important;
   }
-  .institutionalHeader .scope{
-    justify-self:end!important;
-    align-self:center!important;
-  }
+  .institutionalHeader .scope{right:auto!important;left:10px!important;bottom:8px!important}
 }
 
-@media (max-width:760px){
+@media (max-width:650px){
   .institutionalHeader{
     grid-template-columns:1fr!important;
     grid-template-areas:
       "municipal"
       "title"
-      "actions"
-      "scope"!important;
+      "actions"!important;
+    row-gap:5px!important;
   }
   .institutionalHeader .municipalBrand,
   .institutionalHeader .brand,
-  .institutionalHeader .topActions,
-  .institutionalHeader .scope{
-    justify-self:stretch!important;
-    max-width:100%!important;
-  }
-  .institutionalHeader .scope{
-    justify-content:flex-end!important;
-  }
+  .institutionalHeader .topActions{justify-self:stretch!important;max-width:100%!important}
+  .institutionalHeader .topActions{justify-content:flex-start!important;padding-bottom:20px!important}
+  .institutionalHeader .scope{left:10px!important;right:auto!important;bottom:5px!important}
 }
