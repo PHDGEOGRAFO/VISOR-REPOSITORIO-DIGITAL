@@ -50,8 +50,14 @@ jobs:
           if 'Suma n_per' not in page: raise SystemExit('Falta Suma n_per')
           if 'soc-pto-bibliotecas-vf-2025.geojson' not in page: raise SystemExit('Bibliotecas no quedó conectada')
           report=json.loads(pathlib.Path('/tmp/resync_report.json').read_text(encoding='utf-8'))
-          print('Capas resincronizadas:',len(report))
-          print('Coberturas con campos sensibles omitidos en GeoJSON:',sum(bool(x['removed_sensitive']) for x in report))
+          published=report.get('published',[])
+          skipped=report.get('skipped',[])
+          if skipped:
+            nombres=', '.join(x.get('table','?') for x in skipped)
+            raise SystemExit(f'No se permite publicar con capas omitidas por CRS/geometría: {nombres}')
+          print('Capas resincronizadas:',len(published))
+          print('Capas omitidas:',len(skipped))
+          print('Coberturas con campos sensibles omitidos en GeoJSON:',sum(bool(x.get('removed_sensitive')) for x in published))
           print('Bibliotecas:',n)
           PY
           test ! -e public/data/PTO_BIB_2025_001_BIBLIOTECAS_2025.geojson
