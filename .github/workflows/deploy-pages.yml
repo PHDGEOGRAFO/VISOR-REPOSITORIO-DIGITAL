@@ -30,6 +30,14 @@ jobs:
           p=Path('app/page.tsx')
           s=p.read_text(encoding='utf-8')
           s=s.replace('function itemDimension(i:IndexItem){return (i as any).dimensionPladeco||"POR CLASIFICAR"}','function itemDimension(i:IndexItem){return String((i as any).dimensionPladeco||"POR CLASIFICAR").replace("DIMENSIÓN ECONÓMICA","DIMENSIÓN ECONOMICA")}')
+          if 'function displayFieldName(' not in s:
+            s=s.replace('function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}', 'function itemSector(i:IndexItem){return (i as any).sector||"Por clasificar"}\nfunction displayFieldName(v:string){return String(v||"").replace(/^CSV_/i,"")}')
+          s=s.replace('<option key={f} value={f}>{f}</option>','<option key={f} value={f}>{displayFieldName(f)}</option>')
+          s=s.replace('<b>Campo: {disaggregateField}</b>','<b>Campo: {displayFieldName(disaggregateField)}</b>')
+          s=s.replace('<strong>Desagregación · {disaggregateField}</strong>','<strong>Desagregación · {displayFieldName(disaggregateField)}</strong>')
+          s=s.replace('` · Desagregado por ${disaggregateField}`','` · Desagregado por ${displayFieldName(disaggregateField)}`')
+          s=s.replace('<th key={f}>{f}</th>','<th key={f}>{displayFieldName(f)}</th>')
+          s=s.replace('<strong>{k}</strong><span>{String(v??"Sin dato")}</span>','<strong>{displayFieldName(k)}</strong><span>{String(v??"Sin dato")}</span>')
           p.write_text(s,encoding='utf-8')
 
           css=Path('app/globals.css')
