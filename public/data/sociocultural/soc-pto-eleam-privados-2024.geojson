@@ -1,1 +1,13 @@
-{"type":"FeatureCollection","name":"SOC_PTO_ELEAM_PRIVADOS_2024","features":[{"type":"Feature","properties":{"Id":0,"Nombre":null,"N_Resident":null,"Costo":null},"geometry":{"type":"Point","coordinates":[-70.667837,-33.451675]}},{"type":"Feature","properties":{"Id":0,"Nombre":"Casa Reposo Esperanza","N_Resident":null,"Costo":null},"geometry":{"type":"Point","coordinates":[-70.63574,-33.462473]}},{"type":"Feature","properties":{"Id":0,"Nombre":"Daniela","N_Resident":null,"Costo":null},"geometry":{"type":"Point","coordinates":[-70.659083,-33.438011]}},{"type":"Feature","properties":{"Id":0,"Nombre":"FundaciÃ³n Betania","N_Resident":17.0,"Costo":1500000.0},"geometry":{"type":"Point","coordinates":[-70.645349,-33.467372]}},{"type":"Feature","properties":{"Id":0,"Nombre":"Hogar Santisima Trinidad (Las Rosas)","N_Resident":94.0,"Costo":300000.0},"geometry":{"type":"Point","coordinates":[-70.643801,-33.468903]}},{"type":"Feature","properties":{"Id":0,"Nombre":"Hogar Santa Ana","N_Resident":48.0,"Costo":120000.0},"geometry":{"type":"Point","coordinates":[-70.660152,-33.455006]}},{"type":"Feature","properties":{"Id":0,"Nombre":"La Paz del Atardecer","N_Resident":14.0,"Costo":999999.0},"geometry":{"type":"Point","coordinates":[-70.661677,-33.471621]}}]}
+{
+"type": "FeatureCollection",
+"name": "SOC_PTO_ELEAM_PRIVADOS_2024",
+"features": [
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": null, "N_Resident": null, "Costo": null }, "geometry": { "type": "Point", "coordinates": [ -70.667837, -33.451675 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "Casa Reposo Esperanza", "N_Resident": null, "Costo": null }, "geometry": { "type": "Point", "coordinates": [ -70.63574, -33.462473 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "Daniela", "N_Resident": null, "Costo": null }, "geometry": { "type": "Point", "coordinates": [ -70.659083, -33.438011 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "FundaciÃ³n Betania", "N_Resident": 17.0, "Costo": 1500000.0 }, "geometry": { "type": "Point", "coordinates": [ -70.645349, -33.467372 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "Hogar Santisima Trinidad (Las Rosas)", "N_Resident": 94.0, "Costo": 300000.0 }, "geometry": { "type": "Point", "coordinates": [ -70.643801, -33.468903 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "Hogar Santa Ana", "N_Resident": 48.0, "Costo": 120000.0 }, "geometry": { "type": "Point", "coordinates": [ -70.660152, -33.455006 ] } },
+{ "type": "Feature", "properties": { "Id": 0, "Nombre": "La Paz del Atardecer", "N_Resident": 14.0, "Costo": 999999.0 }, "geometry": { "type": "Point", "coordinates": [ -70.661677, -33.471621 ] } }
+]
+}

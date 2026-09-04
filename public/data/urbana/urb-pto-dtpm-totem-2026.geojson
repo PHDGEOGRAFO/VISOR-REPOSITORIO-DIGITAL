@@ -1,0 +1,14 @@
+{
+"type": "FeatureCollection",
+"name": "URB_PTO_DTPM_TOTEM_2026",
+"features": [
+{ "type": "Feature", "properties": { "Id": 1, "Direcci├│n": "Alameda-Vicuna Mackenna", "Orientacio": "NP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 347972.80319200002, "Y": 6299070.1905800002, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.635447, -33.436996 ] } },
+{ "type": "Feature", "properties": { "Id": 2, "Direcci├│n": "Vicuna Mackenna-Merced", "Orientacio": "NP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 347962.502866, "Y": 6299077.9459300004, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.635556, -33.436924 ] } },
+{ "type": "Feature", "properties": { "Id": 3, "Direcci├│n": "Alameda-Estado", "Orientacio": "NP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 346722.87024299998, "Y": 6298364.77728, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.649008, -33.443178 ] } },
+{ "type": "Feature", "properties": { "Id": 4, "Direcci├│n": "Alameda-Manuel Rodriguez", "Orientacio": "NP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 345709.69295900001, "Y": 6298073.1435399996, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.659955, -33.445662 ] } },
+{ "type": "Feature", "properties": { "Id": 5, "Direcci├│n": "Ahumada-Huerfanos", "Orientacio": "NP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 346526.38115799997, "Y": 6298754.4149700003, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.651055, -33.439637 ] } },
+{ "type": "Feature", "properties": { "Id": 6, "Direcci├│n": "Alameda-Ejercito", "Orientacio": "SP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 345548.33728799998, "Y": 6297933.6841500001, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.661714, -33.446896 ] } },
+{ "type": "Feature", "properties": { "Id": 7, "Direcci├│n": "Alameda-Republica", "Orientacio": "SP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 344923.99915400002, "Y": 6297763.0866200002, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.668458, -33.448344 ] } },
+{ "type": "Feature", "properties": { "Id": 8, "Direcci├│n": "Estado-Miguel Cruchaga", "Orientacio": "SP", "Dependenci": "Cordesan", "Dimension": "6x2 mts", "X": 346686.654217, "Y": 6298462.4272800004, "TIPO_INFRA": "TOTEM", "ANIO": 2026 }, "geometry": { "type": "Point", "coordinates": [ -70.649381, -33.442292 ] } }
+]
+}
