@@ -23,6 +23,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Aplicar correcciones UI estables
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/page.tsx')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('function itemDimension(i:IndexItem){return (i as any).dimensionPladeco||"POR CLASIFICAR"}','function itemDimension(i:IndexItem){return String((i as any).dimensionPladeco||"POR CLASIFICAR").replace("DIMENSIÓN ECONÓMICA","DIMENSIÓN ECONOMICA")}')
+          p.write_text(s,encoding='utf-8')
+
+          css=Path('app/globals.css')
+          c=css.read_text(encoding='utf-8')
+          marker='/* PRINT_COMPLETO_DEPLOY */'
+          if marker not in c:
+            c += '''\n/* PRINT_COMPLETO_DEPLOY */\n@media print{\n@page{size:Letter landscape;margin:5mm}\nbody>*{display:none!important}body>main{display:block!important}\nmain>header,.sidebar,.layerControl,.zoomControl,.mapAttribution,.topActions,.santiPanel,.legacyTools,.selectionButtons,.toolButtons,.clearSelection,.downloadAuthBackdrop,.indexBackdrop{display:none!important}\n.workspace{display:grid!important;grid-template-columns:minmax(0,1fr) 70mm!important;gap:3mm!important;height:auto!important;min-height:0!important;align-items:start!important}\n.map{display:block!important;position:relative!important;width:auto!important;height:190mm!important;overflow:hidden!important;border:1px solid #697671!important;background:#eef0ed!important}\n.inspector{display:block!important;position:static!important;width:auto!important;height:190mm!important;overflow:hidden!important;padding:3mm!important;background:#fff!important;border:1px solid #aeb7b2!important}\n.analysisTools{display:block!important;position:absolute!important;z-index:30!important;right:4mm!important;top:4mm!important;width:61mm!important;max-height:105mm!important;overflow:hidden!important;padding:2.5mm!important;background:#fffffff2!important;border:1px solid #9aa7a1!important;box-shadow:none!important}\n.analysisTools label,.analysisTools small,.analysisTools select,.analysisTools .analysisResult strong{font-size:6.2pt!important;line-height:1.25!important}\n.analysisTools select{padding:1mm!important;background:#fff!important;border:1px solid #aeb7b2!important}\n.visualBlock{display:none!important}.printMapDecor{display:block!important}.printAnalysisState{display:none!important}\n.inspector .title h2{font-size:13pt!important}.inspector .title p,.inspector>p{font-size:7pt!important;line-height:1.35!important}.inspector .summary{padding:2mm 0!important}.inspector .summary div{padding:2mm!important;margin:0!important;font-size:6.8pt!important}.featureDetails p{display:grid!important;grid-template-columns:26mm 1fr!important;gap:1mm!important;margin:0!important;padding:1.1mm 0!important;border-bottom:1px solid #e1e5e2!important}.featureDetails strong,.featureDetails span{font-size:6.2pt!important;line-height:1.25!important;overflow-wrap:anywhere!important}\n}\n'''
+            css.write_text(c,encoding='utf-8')
+          PY
       - run: npm ci
       - run: npx next build --webpack
       - uses: actions/configure-pages@v5
@@ -43,4 +59,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# redeploy 2026-09-04: catálogo GIS actualizado + logo municipal oficial
+# 2026-09-04: GPKG maestro en G/Drive; correcciones UI se aplican antes del build para evitar regresiones.
