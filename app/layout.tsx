@@ -7,6 +7,7 @@ import "./floating-windows.css";
 import "./source-note.css";
 import "./responsive.css";
 import "./responsive-header.css";
+import "./map-ui-enhancements.css";
 import FloatingWindows from "./FloatingWindows";
 import TextEncodingRepair from "./TextEncodingRepair";
 import GeoJsonSanitizer from "./GeoJsonSanitizer";
