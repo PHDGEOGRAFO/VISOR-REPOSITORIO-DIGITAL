@@ -1,0 +1,3 @@
+Despliegue de validacion del motor de render poligonal corregido.
+Base requerida: commit c4ec163cc09b75101770102ae000d154e8bd35c4 o posterior.
+Objetivo: validar Areas Verdes, Area Verde PRC y coberturas poligonales complejas con recorte por viewport y simplificacion adaptativa.
