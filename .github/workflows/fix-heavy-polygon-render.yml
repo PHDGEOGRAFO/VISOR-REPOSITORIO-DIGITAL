@@ -1,0 +1,49 @@
+name: Corregir render de poligonos pesados
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-heavy-polygon-render.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar presupuesto de render para poligonos complejos
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/InteractiveMap.tsx')
+          s=p.read_text(encoding='utf-8')
+          old1='const MAX_RENDER_FEATURES=1800,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;'
+          new1='const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=320,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;'
+          old2='function viewportFeatures(arr:GeoFeature[],z:number,cx:number,cy:number){const visible=arr.filter(f=>visibleFeature(f,z,cx,cy));if(!visible.length)return visible;const pointOnly=visible.every(f=>f.geometry.type==="Point"||f.geometry.type==="MultiPoint");return pointOnly?sampleArray(visible,MAX_RENDER_FEATURES):visible}'
+          new2='function viewportFeatures(arr:GeoFeature[],z:number,cx:number,cy:number){const visible=arr.filter(f=>visibleFeature(f,z,cx,cy));if(!visible.length)return visible;const pointOnly=visible.every(f=>f.geometry.type==="Point"||f.geometry.type==="MultiPoint");if(pointOnly)return sampleArray(visible,MAX_RENDER_FEATURES);const polygonOnly=visible.every(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");if(polygonOnly)return sampleArray(visible,MAX_POLYGON_RENDER_FEATURES);const lineOnly=visible.every(f=>f.geometry.type==="LineString"||f.geometry.type==="MultiLineString");if(lineOnly)return sampleArray(visible,MAX_LINE_RENDER_FEATURES);return sampleArray(visible,Math.min(MAX_LINE_RENDER_FEATURES,MAX_RENDER_FEATURES))}'
+          old3='const fc=data[id],s=styles[id]||{color:"#333"};if(!fc)return null;const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");return <g key={id} data-layer={id}>{viewportFeatures(fc.features,zoom,cw.x,cw.y).map((f,i)=>{'
+          new3='const fc=data[id],s=styles[id]||{color:"#333"};if(!fc)return null;const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const heavy=fc.features.length>600;const layerDetail=heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;return <g key={id} data-layer={id}>{viewportFeatures(fc.features,zoom,cw.x,cw.y).map((f,i)=>{'
+          old4='linePath(f,zoom,cw.x,cw.y,detail.parts,detail.points)'
+          new4='linePath(f,zoom,cw.x,cw.y,layerDetail.parts,layerDetail.points)'
+          old5='polygonPath(f,zoom,cw.x,cw.y,detail.parts,detail.points)'
+          new5='polygonPath(f,zoom,cw.x,cw.y,layerDetail.parts,layerDetail.points)'
+          pairs=[(old1,new1),(old2,new2),(old3,new3),(old4,new4),(old5,new5)]
+          for old,new in pairs:
+              if old not in s:
+                  raise SystemExit('No se encontro bloque esperado: '+old[:80])
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit de la correccion
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/InteractiveMap.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Evitar bloqueo con poligonos complejos AV PRC"
+          git push
