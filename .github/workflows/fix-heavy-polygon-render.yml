@@ -1,5 +1,6 @@
 name: Corregir render de poligonos pesados
 
+# Segunda activacion para aplicar el parche en main
 on:
   push:
     paths:
