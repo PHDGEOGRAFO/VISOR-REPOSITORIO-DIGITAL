@@ -18,5 +18,9 @@
 .downloadAuthDialog{z-index:30001!important;position:relative!important}
 .coverageIndex{z-index:5000!important}.indexBackdrop{z-index:4900!important}
 
+/* Acceso rapido para vaciar todas las coberturas tematicas del plano. */
+.clearMapButton{width:100%;margin-top:7px;padding:10px 12px;border:1px solid #b44;border-radius:2px;background:#fff;color:#8b1d1d;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.35px;cursor:pointer}
+.clearMapButton:hover{background:#8b1d1d;color:#fff}
+
 @media(max-width:900px){.mapNavigationBar{top:8px;right:8px}.mapNavigationBar button{width:31px;height:30px;font-size:16px}}
-@media print{.mapNavigationBar{display:none!important}.analysisTools>.analysisDragHandle:after{display:none!important}}
+@media print{.mapNavigationBar,.clearMapButton{display:none!important}.analysisTools>.analysisDragHandle:after{display:none!important}}
