@@ -35,21 +35,12 @@ if 'Manual de uso</a>' not in s:
     )
 
 # -----------------------------------------------------------------------------
-# Bloqueo temporal de coberturas con render problemático
+# Prueba controlada: las 8 coberturas con render problemático quedan reactivadas
 # -----------------------------------------------------------------------------
 if "const TEMPORARILY_DISABLED=" not in s:
     anchor = 'const thematicGroups=groups.filter(([c])=>c!=="BASE");'
     disabled = '''const thematicGroups=groups.filter(([c])=>c!=="BASE");
-const TEMPORARILY_DISABLED=new Set<string>([
- "vf-amb-pol-areas-verdes",
- "vf-amb-pol-averde-prc",
- "vf-amb-pol-mascotas-mz-2026",
- "vf-amb-pol-ndvi-stgo-oct-2025",
- "vf-amb-pol-ndwi-stgo-2025",
- "vf-amb-pol-plazas-2026",
- "vf-amb-pol-reciclaje-manzana",
- "vf-amb-pol-reciclaje-vf"
-]);
+const TEMPORARILY_DISABLED=new Set<string>([]);
 const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id);'''
     if anchor not in s:
         raise RuntimeError("No se encontró thematicGroups para instalar bloqueo temporal")
@@ -87,7 +78,6 @@ old = '<section className="map"><InteractiveMap data={data} active={active}'
 new = '<section className="map"><InteractiveMap data={data} active={active.filter(id=>!temporarilyDisabled(id))}'
 s = s.replace(old, new, 1)
 
-# Evitar que SANTI seleccione una cobertura bloqueada.
 s = s.replace(
     'if(a.type==="activate_layer"){ensureActive(a.layerId);setSelected(a.layerId);if(polygon)setSpatialSelection(featuresInPolygon(data[a.layerId],polygon))}',
     'if(a.type==="activate_layer"&&!temporarilyDisabled(a.layerId)){ensureActive(a.layerId);setSelected(a.layerId);if(polygon)setSpatialSelection(featuresInPolygon(data[a.layerId],polygon))}',
@@ -97,7 +87,7 @@ s = s.replace(
 p.write_text(s, encoding="utf-8")
 
 # -----------------------------------------------------------------------------
-# Motor de render V2 + corrección TypeScript que bloqueó el build #213
+# Motor de render V2 + correcciones TypeScript
 # -----------------------------------------------------------------------------
 p = Path("app/InteractiveMap.tsx")
 m = p.read_text(encoding="utf-8")
@@ -143,4 +133,4 @@ main>header,.sidebar,.layerControl,.zoomControl,.mapAttribution,.topActions,.san
 '''
     css.write_text(c, encoding="utf-8")
 
-print("Parches de despliegue aplicados: UI estable + render V2 + bloqueo temporal.")
+print("Parches de despliegue aplicados: UI estable + render V2 + prueba de 8 coberturas reactivadas.")
