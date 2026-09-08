@@ -4,48 +4,34 @@ import re
 page = Path("app/page.tsx")
 s = page.read_text(encoding="utf-8")
 
-# En GitHub Pages usamos rutas relativas para no depender del basePath.
-# Así funciona tanto en /VISOR-REPOSITORIO-DIGITAL/ como en una eventual ruta pública distinta.
-logo = '<span className="municipalLogoBox"><img src="logo-munistgo.png" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src="logo-munistgo-fallback.svg"}} alt="STGO Ilustre Municipalidad de Santiago"/></span>'
-logo_print = '<span className="municipalLogoBox printLogoBox"><img src="logo-munistgo.png" onError={(e)=>{e.currentTarget.onerror=null;e.currentTarget.src="logo-munistgo-fallback.svg"}} alt="Municipalidad de Santiago"/></span>'
+# SVG autónomo: no depende de PNG, rutas ni archivos externos.
+logo_svg = '''<span className="municipalLogoBox" aria-label="STGO Ilustre Municipalidad de Santiago"><svg className="municipalInlineLogo" viewBox="0 0 360 110" role="img" aria-label="STGO Ilustre Municipalidad de Santiago"><rect x="0" y="0" width="360" height="110" rx="5" fill="white"/><text x="14" y="35" fontSize="28" fontWeight="700" fill="#0a3f82">STGO</text><text x="98" y="35" fontSize="19" fontWeight="600" fill="#0a3f82">Ilustre</text><text x="14" y="67" fontSize="20" fill="#0a3f82">Municipalidad de</text><text x="14" y="94" fontSize="22" fontWeight="600" fill="#0a3f82">Santiago</text></svg></span>'''
+logo_print = '''<span className="municipalLogoBox printLogoBox" aria-label="Municipalidad de Santiago"><svg className="municipalInlineLogo" viewBox="0 0 360 110" role="img" aria-label="Municipalidad de Santiago"><rect x="0" y="0" width="360" height="110" rx="5" fill="white"/><text x="14" y="35" fontSize="28" fontWeight="700" fill="#0a3f82">STGO</text><text x="98" y="35" fontSize="19" fontWeight="600" fill="#0a3f82">Ilustre</text><text x="14" y="67" fontSize="20" fill="#0a3f82">Municipalidad de</text><text x="14" y="94" fontSize="22" fontWeight="600" fill="#0a3f82">Santiago</text></svg></span>'''
 
-# Reemplaza variantes antiguas o ya parcheadas del logo principal.
-s, n1 = re.subn(
-    r'<span className="municipalLogoBox"><img src=\{?`?\$\{?BASE_PATH\}?/?logo-munistgo\.png`?\}?[^>]*alt="STGO Ilustre Municipalidad de Santiago"/></span>',
-    logo,
-    s,
-    count=1,
-)
-if n1 == 0:
-    s, n1 = re.subn(
-        r'<img src=\{?`?\$\{?BASE_PATH\}?/?logo-munistgo\.png`?\}?[^>]*alt="STGO Ilustre Municipalidad de Santiago"/>',
-        logo,
-        s,
-        count=1,
-    )
-if n1 == 0 and 'src="logo-munistgo.png"' not in s:
-    raise RuntimeError("No se encontró el logo municipal principal para corregir")
+# Sustituye cualquier variante previa del logo por el SVG autónomo.
+patterns = [
+    r'<span className="municipalLogoBox">.*?alt="STGO Ilustre Municipalidad de Santiago".*?</span>',
+    r'<img[^>]*alt="STGO Ilustre Municipalidad de Santiago"[^>]*/>',
+]
+replaced = False
+for pat in patterns:
+    s, n = re.subn(pat, logo_svg, s, count=1, flags=re.S)
+    if n:
+        replaced = True
+        break
+if not replaced and 'municipalInlineLogo' not in s:
+    raise RuntimeError("No se encontró el logo municipal principal para reemplazar")
 
-# Reemplaza variante de impresión si existe.
-s, _ = re.subn(
-    r'<span className="municipalLogoBox printLogoBox"><img src=\{?`?\$\{?BASE_PATH\}?/?logo-munistgo\.png`?\}?[^>]*alt="Municipalidad de Santiago"/></span>',
-    logo_print,
-    s,
-    count=1,
-)
-s, _ = re.subn(
-    r'<img src=\{?`?\$\{?BASE_PATH\}?/?logo-munistgo\.png`?\}?[^>]*alt="Municipalidad de Santiago"/>',
-    logo_print,
-    s,
-    count=1,
-)
+# Logo de impresión, si existe.
+s = re.sub(r'<span className="municipalLogoBox printLogoBox">.*?alt="Municipalidad de Santiago".*?</span>', logo_print, s, count=1, flags=re.S)
+s = re.sub(r'<img[^>]*alt="Municipalidad de Santiago"[^>]*/>', logo_print, s, count=1, flags=re.S)
 
 page.write_text(s, encoding="utf-8")
 
 css = Path("app/globals.css")
 c = css.read_text(encoding="utf-8")
-marker = "/* MUNICIPAL_LOGO_VISIBLE */"
+marker = "/* MUNICIPAL_LOGO_INLINE_SVG */"
 if marker not in c:
-    c += '''\n/* MUNICIPAL_LOGO_VISIBLE */\n.municipalLogoBox{display:flex;align-items:center;justify-content:flex-start;background:#fff;border-radius:4px;padding:4px 7px;min-width:145px;height:54px;box-shadow:0 0 0 1px #ffffff55;flex:0 0 auto}\n.municipalLogoBox img{display:block!important;width:132px!important;max-width:132px!important;height:44px!important;object-fit:contain!important;object-position:left center!important;opacity:1!important;visibility:visible!important}\n.printLogoBox{min-width:128px;height:48px;padding:3px 6px}\n.printLogoBox img{width:116px!important;max-width:116px!important;height:38px!important}\n@media(max-width:1366px){.municipalLogoBox{min-width:120px;height:48px;padding:3px 6px}.municipalLogoBox img{width:108px!important;max-width:108px!important;height:40px!important}}\n'''
+    c += '''\n/* MUNICIPAL_LOGO_INLINE_SVG */\n.municipalLogoBox{display:flex;align-items:center;justify-content:flex-start;background:#fff;border-radius:4px;padding:3px 6px;min-width:145px;height:54px;flex:0 0 auto;overflow:hidden}\n.municipalInlineLogo{display:block;width:145px;height:48px;max-width:145px;flex:0 0 auto}\n.printLogoBox{min-width:128px;height:48px}\n.printLogoBox .municipalInlineLogo{width:128px;height:42px}\n@media(max-width:1366px){.municipalLogoBox{min-width:122px;height:48px}.municipalInlineLogo{width:122px;height:42px;max-width:122px}}\n'''
 css.write_text(c, encoding="utf-8")
-print("Logo municipal corregido con ruta relativa y fallback SVG.")
+print("Logo municipal convertido a SVG autónomo embebido; sin dependencia de archivos externos.")
