@@ -26,8 +26,9 @@ if n1 != 1:
     raise RuntimeError("No se encontró TEMPORARILY_DISABLED en app/page.tsx")
 
 # Además de las 8 coberturas, todo NDVI 2023/2025 queda temporalmente fuera de uso.
-# Esto cubre las variantes por barrio, manzana, territorio y NDVI Santiago 2025.
-helper = 'const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/ndvi/i.test(id)&&/(2023|2025)/.test(id));'
+# También se bloquea exclusivamente la versión POLÍGONO de Propiedades Municipales,
+# manteniendo disponible la cobertura de puntos hasta completar/validar todos los predios.
+helper = 'const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/ndvi/i.test(id)&&/(2023|2025)/.test(id))||(/propiedad(?:es)?-municipal(?:es)?/i.test(id)&&/(?:^|-)pol(?:-|$)/i.test(id));'
 s, n2 = re.subn(
     r'const temporarilyDisabled=\(id:string\)=>[^;]+;',
     helper,
@@ -38,4 +39,4 @@ if n2 != 1:
     raise RuntimeError("No se encontró temporarilyDisabled en app/page.tsx")
 
 p.write_text(s, encoding="utf-8")
-print("Bloqueo temporal aplicado: 8 coberturas originales + todo NDVI 2023/2025.")
+print("Bloqueo temporal aplicado: 8 coberturas originales + NDVI 2023/2025 + Propiedades Municipales polígono.")
