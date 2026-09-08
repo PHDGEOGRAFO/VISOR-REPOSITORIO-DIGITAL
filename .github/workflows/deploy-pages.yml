@@ -31,6 +31,8 @@ jobs:
         run: python scripts/temporary_layer_blocklist.py
       - name: Compactar indice de coberturas
         run: python scripts/compact_coverage_index.py
+      - name: Corregir clasificacion de Riesgo Situacional
+        run: python scripts/fix_catalog_classification.py
       - name: Asegurar logo municipal visible
         run: python scripts/ensure_municipal_logo.py
       - name: Instalar GDAL para descargas por cobertura
@@ -61,5 +63,6 @@ jobs:
 
 # 2026-09-08: bloqueo temporal de 8 coberturas originales + NDVI 2023/2025 hasta nuevo aviso.
 # 2026-09-08: indice de coberturas KISS, compacto y redimensionable.
-# 2026-09-08: comuna, territorio y barrio se renderizan con geometria exacta.
+# 2026-09-08: comuna, territorio y barrio desde fuentes VF oficiales y geometria exacta.
+# 2026-09-08: Riesgo Situacional Barrio 2026 -> DIMENSION SOCIOCULTURAL / Seguridad.
 # 2026-09-08: logo municipal con fondo blanco y fallback SVG.
