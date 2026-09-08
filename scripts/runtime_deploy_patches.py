@@ -87,25 +87,48 @@ s = s.replace(
 p.write_text(s, encoding="utf-8")
 
 # -----------------------------------------------------------------------------
-# Motor de render V2 + correcciones TypeScript
+# Motor de render V3: polígonos pesados + correcciones TypeScript
 # -----------------------------------------------------------------------------
 p = Path("app/InteractiveMap.tsx")
 m = p.read_text(encoding="utf-8")
+
+# Limitar cantidad de polígonos que llegan al SVG.
 m = m.replace(
     'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=320,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;',
-    'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=180,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;',
+    'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=80,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;',
     1,
 )
+m = m.replace(
+    'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=180,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;',
+    'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=80,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;',
+    1,
+)
+
+# El cálculo de bounds anterior recorría cada vértice de cada polígono antes de
+# simplificar el dibujo. En capas como Áreas Verdes / Averde PRC eso puede bloquear
+# el navegador. El muestreo mantiene suficiente precisión para decidir visibilidad.
+old_bounds = 'function coordinateBounds(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity] as number[]){if(Array.isArray(coords)&&coords.length>=2&&typeof coords[0]==="number"&&typeof coords[1]==="number"){const x=coords[0],y=coords[1];if(Number.isFinite(x)&&Number.isFinite(y)){b[0]=Math.min(b[0],x);b[1]=Math.min(b[1],y);b[2]=Math.max(b[2],x);b[3]=Math.max(b[3],y)}return b}if(Array.isArray(coords))for(const c of coords)coordinateBounds(c,b);return b}'
+new_bounds = 'function coordinateBounds(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity] as number[]){if(Array.isArray(coords)&&coords.length>=2&&typeof coords[0]==="number"&&typeof coords[1]==="number"){const x=coords[0],y=coords[1];if(Number.isFinite(x)&&Number.isFinite(y)){b[0]=Math.min(b[0],x);b[1]=Math.min(b[1],y);b[2]=Math.max(b[2],x);b[3]=Math.max(b[3],y)}return b}if(Array.isArray(coords)){const n=coords.length;if(n>128){const step=Math.ceil(n/128);for(let i=0;i<n;i+=step)coordinateBounds(coords[i],b);coordinateBounds(coords[n-1],b)}else for(const c of coords)coordinateBounds(c,b)}return b}'
+m = m.replace(old_bounds, new_bounds, 1)
+
 m = m.replace(
     'function linePath(f:GeoFeature,z:number,cx:number,cy:number,maxParts=MAX_PARTS,maxPoints=MAX_POINTS_PER_PART){const lines0=f.geometry.type==="LineString"?[f.geometry.coordinates]:f.geometry.coordinates;const lines=sampleArray(lines0,maxParts);return lines.map((line:number[][])=>sampleArray(line,maxPoints).map((p,i)=>{const[x,y]=project(p,z,cx,cy);return`${i?"L":"M"}${x.toFixed(1)} ${y.toFixed(1)}`}).join("")).join(" ")}',
     'function linePath(f:GeoFeature,z:number,cx:number,cy:number,maxParts=MAX_PARTS,maxPoints=MAX_POINTS_PER_PART){const lines0=(f.geometry.type==="LineString"?[f.geometry.coordinates]:f.geometry.coordinates) as number[][][];const lines=sampleArray(lines0,maxParts);return lines.map((line:number[][])=>sampleArray(line,maxPoints).map((p,i)=>{const[x,y]=project(p,z,cx,cy);return`${i?"L":"M"}${x.toFixed(1)} ${y.toFixed(1)}`}).join("")).join(" ")}',
     1,
 )
+
+# Polígonos pesados: menos partes y menos vértices por anillo.
 m = m.replace(
     'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const heavy=fc.features.length>600;const layerDetail=heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
-    'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const polygonLayer=fc.features.some(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");const polygonHeavy=polygonLayer&&fc.features.length>150;const heavy=polygonHeavy||fc.features.length>600;const layerDetail=polygonHeavy?{parts:Math.min(detail.parts,8),points:Math.min(detail.points,22)}:heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
+    'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const polygonLayer=fc.features.some(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");const polygonHeavy=polygonLayer&&fc.features.length>80;const heavy=polygonHeavy||fc.features.length>600;const layerDetail=polygonHeavy?{parts:Math.min(detail.parts,4),points:Math.min(detail.points,14)}:heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
     1,
 )
+m = m.replace(
+    'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const polygonLayer=fc.features.some(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");const polygonHeavy=polygonLayer&&fc.features.length>150;const heavy=polygonHeavy||fc.features.length>600;const layerDetail=polygonHeavy?{parts:Math.min(detail.parts,8),points:Math.min(detail.points,22)}:heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
+    'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const polygonLayer=fc.features.some(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");const polygonHeavy=polygonLayer&&fc.features.length>80;const heavy=polygonHeavy||fc.features.length>600;const layerDetail=polygonHeavy?{parts:Math.min(detail.parts,4),points:Math.min(detail.points,14)}:heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
+    1,
+)
+
 p.write_text(m, encoding="utf-8")
 
 # -----------------------------------------------------------------------------
@@ -133,4 +156,4 @@ main>header,.sidebar,.layerControl,.zoomControl,.mapAttribution,.topActions,.san
 '''
     css.write_text(c, encoding="utf-8")
 
-print("Parches de despliegue aplicados: UI estable + render V2 + prueba de 8 coberturas reactivadas.")
+print("Parches de despliegue aplicados: UI estable + render V3 polígonos pesados + 8 coberturas reactivadas.")
