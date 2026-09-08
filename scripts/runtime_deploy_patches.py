@@ -35,12 +35,12 @@ if 'Manual de uso</a>' not in s:
     )
 
 # -----------------------------------------------------------------------------
-# Prueba controlada: las 8 coberturas con render problemático quedan reactivadas
+# Bloqueo temporal: dos coberturas poligonales confirmadas como inestables
 # -----------------------------------------------------------------------------
 if "const TEMPORARILY_DISABLED=" not in s:
     anchor = 'const thematicGroups=groups.filter(([c])=>c!=="BASE");'
     disabled = '''const thematicGroups=groups.filter(([c])=>c!=="BASE");
-const TEMPORARILY_DISABLED=new Set<string>([]);
+const TEMPORARILY_DISABLED=new Set<string>(["vf-amb-pol-areas-verdes","vf-amb-pol-averde-prc"]);
 const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id);'''
     if anchor not in s:
         raise RuntimeError("No se encontró thematicGroups para instalar bloqueo temporal")
@@ -104,9 +104,6 @@ m = m.replace(
     1,
 )
 
-# El cálculo de bounds anterior recorría cada vértice de cada polígono antes de
-# simplificar el dibujo. En capas como Áreas Verdes / Averde PRC eso puede bloquear
-# el navegador. El muestreo mantiene suficiente precisión para decidir visibilidad.
 old_bounds = 'function coordinateBounds(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity] as number[]){if(Array.isArray(coords)&&coords.length>=2&&typeof coords[0]==="number"&&typeof coords[1]==="number"){const x=coords[0],y=coords[1];if(Number.isFinite(x)&&Number.isFinite(y)){b[0]=Math.min(b[0],x);b[1]=Math.min(b[1],y);b[2]=Math.max(b[2],x);b[3]=Math.max(b[3],y)}return b}if(Array.isArray(coords))for(const c of coords)coordinateBounds(c,b);return b}'
 new_bounds = 'function coordinateBounds(coords:any,b=[Infinity,Infinity,-Infinity,-Infinity] as number[]){if(Array.isArray(coords)&&coords.length>=2&&typeof coords[0]==="number"&&typeof coords[1]==="number"){const x=coords[0],y=coords[1];if(Number.isFinite(x)&&Number.isFinite(y)){b[0]=Math.min(b[0],x);b[1]=Math.min(b[1],y);b[2]=Math.max(b[2],x);b[3]=Math.max(b[3],y)}return b}if(Array.isArray(coords)){const n=coords.length;if(n>128){const step=Math.ceil(n/128);for(let i=0;i<n;i+=step)coordinateBounds(coords[i],b);coordinateBounds(coords[n-1],b)}else for(const c of coords)coordinateBounds(c,b)}return b}'
 m = m.replace(old_bounds, new_bounds, 1)
@@ -117,7 +114,6 @@ m = m.replace(
     1,
 )
 
-# Polígonos pesados: menos partes y menos vértices por anillo.
 m = m.replace(
     'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const heavy=fc.features.length>600;const layerDetail=heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
     'const hideSelectedPoints=id===selectedLayerId&&(viz==="cluster"||viz==="heat");const polygonLayer=fc.features.some(f=>f.geometry.type==="Polygon"||f.geometry.type==="MultiPolygon");const polygonHeavy=polygonLayer&&fc.features.length>80;const heavy=polygonHeavy||fc.features.length>600;const layerDetail=polygonHeavy?{parts:Math.min(detail.parts,4),points:Math.min(detail.points,14)}:heavy?{parts:Math.min(detail.parts,12),points:Math.min(detail.points,28)}:detail;',
@@ -156,4 +152,4 @@ main>header,.sidebar,.layerControl,.zoomControl,.mapAttribution,.topActions,.san
 '''
     css.write_text(c, encoding="utf-8")
 
-print("Parches de despliegue aplicados: UI estable + render V3 polígonos pesados + 8 coberturas reactivadas.")
+print("Parches de despliegue aplicados: UI estable + render V3 + Areas Verdes y Averde PRC temporalmente en corrección.")
