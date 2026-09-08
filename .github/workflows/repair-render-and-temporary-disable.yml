@@ -3,8 +3,6 @@ name: Reparar render V2 e inhabilitar coberturas complejas
 on:
   push:
     branches: [main]
-    paths:
-      - '.repair-v2-trigger'
   workflow_dispatch:
 
 permissions:
@@ -12,6 +10,7 @@ permissions:
 
 jobs:
   repair:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +25,6 @@ jobs:
         run: |
           from pathlib import Path
 
-          # 1) Motor de render: corregir tipado y activar presupuesto ligero desde 150 polígonos.
           p = Path('app/InteractiveMap.tsx')
           s = p.read_text(encoding='utf-8')
           old = 'const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=320,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=5000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;'
@@ -45,7 +43,6 @@ jobs:
           s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
 
-          # 2) Interfaz: inhabilitar temporalmente sólo las coberturas problemáticas confirmadas.
           p = Path('app/page.tsx')
           s = p.read_text(encoding='utf-8')
           anchor = 'const thematicGroups=groups.filter(([c])=>c!=="BASE");'
@@ -79,13 +76,11 @@ const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id);'''
           assert old in s, 'No se encontró toggleFromIndex'
           s = s.replace(old, new, 1)
 
-          # Buscador lateral: botón deshabilitado y estado visible.
           old = 'return <button key={i.id} className={on?"on":""} onClick={()=>toggleFromIndex(i)}><span>{on?"✓":"+"}</span><b>{i.nombre}</b><small>{itemDimension(i).replace("DIMENSIÓN ","")} · {itemSector(i)}</small></button>'
           new = 'const blocked=temporarilyDisabled(id);return <button key={i.id} disabled={blocked} className={on?"on":""} onClick={()=>toggleFromIndex(i)}><span>{blocked?"×":on?"✓":"+"}</span><b>{i.nombre}</b><small>{blocked?"Temporalmente en corrección":`${itemDimension(i).replace("DIMENSIÓN ","")} · ${itemSector(i)}`}</small></button>'
-          assert old in s, 'No se encontró botón de sidebarMatches'
+          assert old in s, 'No se encontró botón de resultados laterales'
           s = s.replace(old, new, 1)
 
-          # Índice: checkbox y botón Seleccionar bloqueados; etiqueta de estado visible en la cobertura.
           old = 'return <tr key={i.id}><td className="mapCheck">{i.verEnMapa&&i.mapId?<label><input type="checkbox" checked={on} onChange={()=>toggleFromIndex(i)}/><span>{on?"Activa":"Activar"}</span></label>:"—"}</td>'
           new = 'const blocked=temporarilyDisabled(mapId);return <tr key={i.id}><td className="mapCheck">{i.verEnMapa&&i.mapId?<label><input type="checkbox" disabled={blocked} checked={on&&!blocked} onChange={()=>toggleFromIndex(i)}/><span>{blocked?"Temporalmente en corrección":on?"Activa":"Activar"}</span></label>:"—"}</td>'
           assert old in s, 'No se encontró checkbox del índice'
@@ -93,21 +88,20 @@ const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id);'''
 
           old = '<td><strong>{i.nombre}</strong><small>{i.carpeta||"Repositorio visor"}</small></td>'
           new = '<td><strong>{i.nombre}</strong><small>{temporarilyDisabled(mapId)?"Temporalmente en corrección":(i.carpeta||"Repositorio visor")}</small></td>'
-          assert old in s, 'No se encontró celda de nombre de cobertura'
+          assert old in s, 'No se encontró celda de nombre'
           s = s.replace(old, new, 1)
 
           old = '{i.verEnMapa&&i.mapId&&<button className="applyAction" onClick={()=>openFromIndex(i)}>Seleccionar</button>}'
           new = '{i.verEnMapa&&i.mapId&&<button disabled={temporarilyDisabled(mapId)} className="applyAction" onClick={()=>openFromIndex(i)}>{temporarilyDisabled(mapId)?"En corrección":"Seleccionar"}</button>}'
-          assert old in s, 'No se encontró botón Seleccionar del índice'
+          assert old in s, 'No se encontró botón Seleccionar'
           s = s.replace(old, new, 1)
 
-          # Si alguna capa problemática hubiera quedado activa por un estado previo, nunca se envía al mapa.
           old = '<section className="map"><InteractiveMap data={data} active={active}'
           new = '<section className="map"><InteractiveMap data={data} active={active.filter(id=>!temporarilyDisabled(id))}'
           assert old in s, 'No se encontró InteractiveMap active'
           s = s.replace(old, new, 1)
-
           p.write_text(s, encoding='utf-8')
+
       - name: Validar build de producción
         run: |
           npm ci
