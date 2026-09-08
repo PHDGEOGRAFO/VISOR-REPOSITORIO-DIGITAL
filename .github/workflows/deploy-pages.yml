@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - name: Aplicar correcciones UI y render V2
         run: python scripts/runtime_deploy_patches.py
+      - name: Aplicar bloqueo temporal de coberturas
+        run: python scripts/temporary_layer_blocklist.py
       - name: Instalar GDAL para descargas por cobertura
         run: |
           sudo apt-get update -qq
@@ -51,4 +53,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# 2026-09-08: bloqueo temporal de coberturas poligonales complejas y render V2.
+# 2026-09-08: bloqueo temporal de 8 coberturas originales + NDVI 2023/2025 hasta nuevo aviso.
