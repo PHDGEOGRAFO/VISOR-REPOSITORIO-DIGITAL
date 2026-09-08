@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - name: Aplicar correcciones UI y render V2
         run: python scripts/runtime_deploy_patches.py
+      - name: Restaurar limites base exactos
+        run: python scripts/fix_base_boundaries.py
       - name: Aplicar bloqueo temporal de coberturas
         run: python scripts/temporary_layer_blocklist.py
       - name: Compactar indice de coberturas
@@ -57,3 +59,4 @@ jobs:
 
 # 2026-09-08: bloqueo temporal de 8 coberturas originales + NDVI 2023/2025 hasta nuevo aviso.
 # 2026-09-08: indice de coberturas KISS, compacto y redimensionable.
+# 2026-09-08: comuna, territorio y barrio se renderizan con geometria exacta.
