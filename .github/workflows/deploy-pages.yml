@@ -27,6 +27,8 @@ jobs:
         run: python scripts/runtime_deploy_patches.py
       - name: Aplicar bloqueo temporal de coberturas
         run: python scripts/temporary_layer_blocklist.py
+      - name: Compactar indice de coberturas
+        run: python scripts/compact_coverage_index.py
       - name: Instalar GDAL para descargas por cobertura
         run: |
           sudo apt-get update -qq
@@ -54,3 +56,4 @@ jobs:
         uses: actions/deploy-pages@v4
 
 # 2026-09-08: bloqueo temporal de 8 coberturas originales + NDVI 2023/2025 hasta nuevo aviso.
+# 2026-09-08: indice de coberturas KISS, compacto y redimensionable.
