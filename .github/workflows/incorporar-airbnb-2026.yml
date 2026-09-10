@@ -1,4 +1,5 @@
 name: Incorporar Airbnb 2026
+# Ejecuta la sincronización pública de la cobertura Airbnb Santiago 2026.
 
 on:
   push:
