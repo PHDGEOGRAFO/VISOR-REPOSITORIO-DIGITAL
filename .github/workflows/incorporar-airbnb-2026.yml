@@ -1,0 +1,74 @@
+name: Incorporar Airbnb 2026
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/incorporar_airbnb_2026.py'
+      - '.github/workflows/incorporar-airbnb-2026.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  incorporar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias GIS
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas geopandas pyogrio shapely
+
+      - name: Generar Airbnb 2026 y actualizar visor
+        run: python scripts/incorporar_airbnb_2026.py
+
+      - name: Validar publicación Airbnb 2026
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          geo = Path('public/data/sociocultural/tur-pto-airbnb-stgo-2026.geojson')
+          cat = Path('public/catalog/index_coberturas.json')
+          page = Path('app/page.tsx')
+
+          data = json.loads(geo.read_text(encoding='utf-8'))
+          assert len(data['features']) == 7182, len(data['features'])
+          assert all(f.get('properties', {}).get('BARRIO') for f in data['features'])
+          assert all(f.get('properties', {}).get('TERRITORIO') for f in data['features'])
+
+          catalog = json.loads(cat.read_text(encoding='utf-8'))
+          item = next(x for x in catalog['items'] if x.get('id') == 'vf-tur-pto-airbnb-stgo-2026')
+          assert item['dimensionPladeco'] == 'DIMENSIÓN SOCIOCULTURAL'
+          assert item['sector'] == 'Turismo'
+          assert item['registros'] == 7182
+          assert 'vf-tur-pto-airbnb-stgo-2026' in page.read_text(encoding='utf-8')
+          print('OK Airbnb 2026: 7182 registros, barrio/territorio completos, catálogo y mapa actualizados')
+          PY
+
+      - name: Instalar dependencias web
+        run: npm ci
+
+      - name: Build producción
+        run: npx next build --webpack
+
+      - name: Guardar cambios
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/page.tsx public/catalog/index_coberturas.json public/data/sociocultural/tur-pto-airbnb-stgo-2026.geojson
+          if git diff --cached --quiet; then
+            echo 'Sin cambios para guardar'
+          else
+            git commit -m 'Visor: incorporar Airbnb 2026 en Turismo'
+            git push
+          fi
