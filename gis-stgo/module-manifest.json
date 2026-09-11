@@ -1,0 +1,24 @@
+{
+  "module_id": "biblioteca-digital",
+  "name": "Biblioteca Digital",
+  "status": "ready_for_gis_stgo",
+  "source_repository": "PHDGEOGRAFO/VISOR-REPOSITORIO-DIGITAL",
+  "entrypoint": "app",
+  "public_module": true,
+  "integration": {
+    "shell": "GIS STGO",
+    "core": ["GIS CORE", "DATA CORE"],
+    "preferred_formats": ["PMTiles", "GeoPackage", "GeoJSON"],
+    "shared_capabilities": ["catalogo", "busqueda", "capas", "leyenda", "descarga", "metadatos", "medicion"]
+  },
+  "publication_rules": {
+    "remove_sensitive_fields": true,
+    "preserve_source_metadata": true,
+    "validate_crs_geometry_fields_before_publish": true
+  },
+  "migration": {
+    "mode": "complete",
+    "central_repository_pending": true,
+    "note": "El módulo queda preparado para montaje directo cuando exista el repositorio/contenedor central GIS STGO."
+  }
+}
