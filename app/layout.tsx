@@ -8,10 +8,12 @@ import "./source-note.css";
 import "./responsive.css";
 import "./responsive-header.css";
 import "./map-ui-enhancements.css";
+import "./download-access.css";
 import FloatingWindows from "./FloatingWindows";
 import TextEncodingRepair from "./TextEncodingRepair";
 import GeoJsonSanitizer from "./GeoJsonSanitizer";
 import MapUiEnhancements from "./MapUiEnhancements";
+import DownloadAccessGate from "./DownloadAccessGate";
 
 export const metadata:Metadata={
   title:"Visor Territorial · Municipalidad de Santiago",
@@ -20,5 +22,5 @@ export const metadata:Metadata={
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="es"><head><meta charSet="utf-8"/></head><body><GeoJsonSanitizer/><TextEncodingRepair/><FloatingWindows/><MapUiEnhancements/>{children}</body></html>;
+  return <html lang="es"><head><meta charSet="utf-8"/></head><body><GeoJsonSanitizer/><TextEncodingRepair/><FloatingWindows/><MapUiEnhancements/><DownloadAccessGate/>{children}</body></html>;
 }
