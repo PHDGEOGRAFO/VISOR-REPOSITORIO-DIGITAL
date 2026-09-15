@@ -2,7 +2,7 @@
 
 import {useEffect,useState} from "react";
 
-type DownloadTarget={button:HTMLButtonElement;coverage:string;format:string};
+type DownloadTarget={button:HTMLButtonElement;coverage:string;format:string;dimension:string;sector:string;year:string};
 type Config={apiUrl:string;adminEmail:string};
 type ApiResult={ok?:boolean;message?:string};
 
@@ -35,8 +35,13 @@ export default function DownloadAccessGateV2(){
       event.stopPropagation();
       event.stopImmediatePropagation();
       const row=element.closest("tr");
+      const dimension=(row?.querySelector("td:nth-child(2)")?.textContent||"SIN DIMENSION").trim();
+      const sector=(row?.querySelector("td:nth-child(3)")?.textContent||"SIN SECTOR").trim();
       const coverage=(row?.querySelector("td:nth-child(4) strong")?.textContent||"Cobertura territorial").trim();
-      setTarget({button:element,coverage,format:(element.textContent||"Archivo").trim()});
+      const rowText=(row?.textContent||coverage).trim();
+      const years=[...rowText.matchAll(/\b(20\d{2})\b/g)].map(m=>m[1]);
+      const year=years.length?years[0]:"SIN AÑO";
+      setTarget({button:element,coverage,format:(element.textContent||"Archivo").trim(),dimension,sector,year});
       setKey("");
       setMessage("");
     };
@@ -110,7 +115,7 @@ export default function DownloadAccessGateV2(){
     const item=target;
     setBusy(true);setMessage("");
     try{
-      await api({action:"download",email:email.trim().toLowerCase(),key:key.trim(),coverage:item.coverage,format:item.format});
+      await api({action:"download",email:email.trim().toLowerCase(),key:key.trim(),coverage:item.coverage,format:item.format,dimension:item.dimension,sector:item.sector,anio:item.year});
       setTarget(null);setKey("");
       continueDownload(item);
     }catch(error){setMessage(error instanceof Error?error.message:"Correo no autorizado.");}
