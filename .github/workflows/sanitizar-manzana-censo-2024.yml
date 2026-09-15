@@ -1,0 +1,57 @@
+name: Sanitizar Manzana Censal 2024
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sanitizar-manzana-censo-2024.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sanitizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reducir atributos de Manzana Censal 2024
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('public/data/manzanas.geojson')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          permitidos = {'COD_MZN','BARRIO','TERRITORIO','COMUNA','n_per'}
+          for f in data.get('features', []):
+              props = f.get('properties') or {}
+              f['properties'] = {k: props.get(k) for k in permitidos if k in props}
+              if 'COD_MZN' in f['properties'] and f['properties']['COD_MZN'] is not None:
+                  f['properties']['COD_MZN'] = str(f['properties']['COD_MZN'])
+          data['name'] = 'MANZANA_CENSAL_2024_WEB'
+          data['gis_stgo'] = {
+              'estado': 'OFICIAL_GIS_STGO',
+              'anio': 2024,
+              'campo_clave': 'COD_MZN',
+              'tipo': 'copia_web_reducida',
+              'campos_publicados': ['COD_MZN','BARRIO','TERRITORIO','COMUNA','n_per']
+          }
+          p.write_text(json.dumps(data, ensure_ascii=False, separators=(',',':')), encoding='utf-8')
+          print(f"Sanitizadas {len(data.get('features', []))} manzanas; se conservaron solo campos de visualización/análisis autorizados.")
+          PY
+
+      - name: Guardar cambio
+        run: |
+          if git diff --quiet; then
+            echo "No hay cambios para guardar"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/manzanas.geojson
+          git commit -m "Reduce Manzana Censal 2024 a copia web GIS STGO"
+          git push
