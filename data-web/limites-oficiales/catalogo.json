@@ -1,0 +1,13 @@
+{
+  "estandar": "GIS-STGO-LIMITES-OFICIALES",
+  "version": "2026-09-15",
+  "crs": "EPSG:4326",
+  "estado": "OFICIAL_GIS_STGO",
+  "fuente_canonica": "PHDGEOGRAFO/GEOINDICADORES",
+  "capas": {
+    "comuna": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/comuna.geojson",
+    "barrios": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/barrios.geojson",
+    "territorios": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/limite_territorios_pladeco.geojson"
+  },
+  "regla": "El Visor Territorial/Biblioteca Digital debe usar estas capas como referencia territorial comun; las coberturas tematicas no deben redefinir barrios, territorios o comuna."
+}
