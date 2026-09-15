@@ -1,3 +1,4 @@
+import CoverageSearch from "./CoverageSearch";
 import styles from "./biblioteca.module.css";
 
 const BASE_PATH = "/VISOR-REPOSITORIO-DIGITAL";
@@ -10,13 +11,10 @@ export default function BibliotecaDigitalPage() {
         <h1 className={styles.title}>Biblioteca Digital</h1>
         <p className={styles.lead}>
           Acceso institucional a información territorial y documentación técnica de apoyo a la planificación.
-          Selecciona uno de los dos repositorios para comenzar.
+          Busca directamente una cobertura o selecciona uno de los dos repositorios.
         </p>
 
-        <div className={styles.searchMock} aria-label="Buscador general en preparación">
-          <span aria-hidden="true">⌕</span>
-          <span>Buscador general de Biblioteca Digital · próximo módulo</span>
-        </div>
+        <CoverageSearch />
 
         <section className={styles.cards} aria-label="Repositorios de Biblioteca Digital">
           <a className={styles.card} href={`${BASE_PATH}/`}>
