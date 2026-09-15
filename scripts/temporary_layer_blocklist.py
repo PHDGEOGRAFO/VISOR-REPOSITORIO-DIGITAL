@@ -4,10 +4,18 @@ import re
 p = Path("app/page.tsx")
 s = p.read_text(encoding="utf-8")
 
-# Las coberturas antes inhabilitadas vuelven a estar disponibles.
-# El motor de render V3 aplicado previamente por runtime_deploy_patches.py
-# limita cantidad de polígonos, vértices y detalle para evitar bloquear la página.
-blocked = []
+# Coberturas pesadas temporalmente inhabilitadas mientras se generan
+# versiones web livianas para visualización segura.
+blocked = [
+    "vf-amb-pol-areas-verdes",
+    "vf-amb-pol-averde-prc",
+    "vf-amb-pol-mascotas-mz-2026",
+    "vf-amb-pol-ndvi-stgo-oct-2025",
+    "vf-amb-pol-ndwi-stgo-2025",
+    "vf-amb-pol-plazas-2026",
+    "vf-amb-pol-reciclaje-manzana",
+    "vf-amb-pol-reciclaje-vf",
+]
 
 set_expr = "const TEMPORARILY_DISABLED=new Set<string>([" + ",".join(f'\"{x}\"' for x in blocked) + "]);"
 s, n1 = re.subn(
@@ -19,9 +27,8 @@ s, n1 = re.subn(
 if n1 != 1:
     raise RuntimeError("No se encontró TEMPORARILY_DISABLED en app/page.tsx")
 
-# Sin bloqueos por ID, NDVI o Propiedades Municipales: todas las coberturas
-# quedan seleccionables; la protección se hace en el render, no ocultando datos.
-helper = 'const temporarilyDisabled=(id:string)=>false;'
+# Protección adicional: NDVI 2023/2025 y Propiedades Municipales polígono.
+helper = 'const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/ndvi/i.test(id)&&/(2023|2025)/.test(id))||(/propiedad(?:es)?-municipal(?:es)?/i.test(id)&&/(?:^|-)pol(?:-|$)/i.test(id));'
 s, n2 = re.subn(
     r'const temporarilyDisabled=\(id:string\)=>[^;]+;',
     helper,
@@ -32,4 +39,4 @@ if n2 != 1:
     raise RuntimeError("No se encontró temporarilyDisabled en app/page.tsx")
 
 p.write_text(s, encoding="utf-8")
-print("Coberturas pesadas re-habilitadas: protección mediante render V3, sin bloqueos temporales.")
+print("Bloqueo temporal aplicado: coberturas pesadas + NDVI 2023/2025 + Propiedades Municipales polígono.")
