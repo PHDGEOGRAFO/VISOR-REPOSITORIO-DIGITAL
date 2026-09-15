@@ -9,6 +9,14 @@ function json_(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
 
+function jsonp_(callback, data) {
+  const cb = String(callback || '');
+  if (!/^[A-Za-z_$][0-9A-Za-z_$]*$/.test(cb)) return json_(data);
+  return ContentService
+    .createTextOutput(cb + '(' + JSON.stringify(data) + ');')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
 function normalizeEmail_(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -124,11 +132,25 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  const action = String((e && e.parameter && e.parameter.action) || '');
-  const token = String((e && e.parameter && e.parameter.token) || '');
+  const params = (e && e.parameter) || {};
+  const action = String(params.action || '');
+  const token = String(params.token || '');
+  const callback = String(params.callback || '');
+
+  if (action === 'request' || action === 'download') {
+    try {
+      const result = action === 'request' ? requestAccess_(params) : registerDownload_(params);
+      return callback ? jsonp_(callback, result) : json_(result);
+    } catch (err) {
+      const result = {ok:false, message:String(err && err.message ? err.message : err)};
+      return callback ? jsonp_(callback, result) : json_(result);
+    }
+  }
+
   if (action !== 'approve' && action !== 'reject') {
     return HtmlService.createHtmlOutput('<h3>Visor Territorial</h3><p>Servicio de autorización activo.</p>');
   }
+
   const request = findPendingByToken_(token);
   if (!request) return HtmlService.createHtmlOutput('<h3>Visor Territorial</h3><p>La solicitud no existe, ya fue resuelta o el enlace no es válido.</p>');
 
