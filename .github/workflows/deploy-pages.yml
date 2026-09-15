@@ -35,6 +35,19 @@ jobs:
         run: python scripts/fix_catalog_classification.py
       - name: Asegurar logo municipal visible
         run: python scripts/ensure_municipal_logo.py
+      - name: Corregir tipado del control de descargas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("app/DownloadAccessGate.tsx")
+          s = p.read_text(encoding="utf-8")
+          old = '.then(r=>r.ok?r.json():{}).then(j=>setConfig({adminEmail:j.adminEmail||DEFAULT_ADMIN,apiUrl:j.apiUrl||""}))'
+          new = '.then(async r=>(r.ok?await r.json():{}) as Config).then((j:Config)=>setConfig({adminEmail:j.adminEmail||DEFAULT_ADMIN,apiUrl:j.apiUrl||""}))'
+          if old not in s:
+              raise SystemExit("No se encontro la expresion esperada en DownloadAccessGate.tsx")
+          p.write_text(s.replace(old,new,1),encoding="utf-8")
+          print("Tipado de DownloadAccessGate corregido")
+          PY
       - name: Instalar GDAL para descargas por cobertura
         run: |
           sudo apt-get update -qq
@@ -66,3 +79,4 @@ jobs:
 # 2026-09-08: comuna, territorio y barrio desde fuentes VF oficiales y geometria exacta.
 # 2026-09-08: Riesgo Situacional Barrio 2026 -> DIMENSION SOCIOCULTURAL / Seguridad.
 # 2026-09-08: logo municipal con fondo blanco y fallback SVG.
+# 2026-09-15: correccion de tipado de DownloadAccessGate para build TypeScript.
