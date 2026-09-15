@@ -1,0 +1,64 @@
+name: Validar publicación segura
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validar-datos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Revisar archivos agregados o modificados
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          HEAD="${{ github.sha }}"
+
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+            FILES=$(git show --pretty='' --name-only "$HEAD")
+          else
+            FILES=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD")
+          fi
+
+          echo "Archivos revisados:"
+          printf '%s\n' "$FILES"
+
+          BAD=0
+          while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+            lower=$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')
+
+            case "$lower" in
+              *.xlsx|*.xls|*.xlsm|*.gpkg|*.shp|*.shx|*.dbf|*.prj|*.cpg|*.qgz|*.qgs|*.sqlite|*.sqlite3)
+                echo "ERROR: formato de trabajo/maestro no publicable: $f"
+                BAD=1
+                ;;
+            esac
+
+            if [[ "$lower" == *"bbdd_maestra"* || "$lower" == *"bbdd-maestra"* || "$lower" == *"/calculos/"* || "$lower" == *"/respaldos/"* || "$lower" == *"/private/"* || "$lower" == *"/privado/"* ]]; then
+              echo "ERROR: ruta o nombre reservado para información privada: $f"
+              BAD=1
+            fi
+          done <<< "$FILES"
+
+          if [[ "$BAD" -ne 0 ]]; then
+            echo "La publicación fue bloqueada para evitar incorporar archivos maestros o de trabajo."
+            exit 1
+          fi
+
+          echo "Validación OK: no se detectaron nuevos archivos maestros/de trabajo."
