@@ -4,6 +4,7 @@ import {useEffect,useRef,useState} from "react";
 
 type Config={apiUrl?:string;adminEmail?:string};
 type TargetInfo={button:HTMLButtonElement;coverage:string;format:string};
+type ApiResponse={ok?:boolean;authorized?:boolean;message?:string};
 
 const DEFAULT_ADMIN="phernandez@munistgo.cl";
 const CONFIG_URL="/VISOR-REPOSITORIO-DIGITAL/download-access-config.json";
@@ -18,7 +19,7 @@ export default function DownloadAccessGate(){
  const targetRef=useRef<TargetInfo|null>(null);
  targetRef.current=target;
 
- useEffect(()=>{fetch(CONFIG_URL,{cache:"no-store"}).then(r=>r.ok?r.json():{}).then(j=>setConfig({adminEmail:j.adminEmail||DEFAULT_ADMIN,apiUrl:j.apiUrl||""})).catch(()=>{})},[]);
+ useEffect(()=>{fetch(CONFIG_URL,{cache:"no-store"}).then(async r=>(r.ok?await r.json():{}) as Config).then((j:Config)=>setConfig({adminEmail:j.adminEmail||DEFAULT_ADMIN,apiUrl:j.apiUrl||""})).catch(()=>{})},[]);
  useEffect(()=>{
   const handlers=new WeakMap<Element,EventListener>();
   const attach=(el:Element)=>{
@@ -40,13 +41,26 @@ export default function DownloadAccessGate(){
  },[]);
 
  const validEmail=(v:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
- const post=async(payload:any)=>{if(!config.apiUrl)throw new Error("BACKEND_PENDING");const r=await fetch(config.apiUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});const data=await r.json().catch(()=>({ok:false,message:"Respuesta no válida"}));if(!r.ok||data.ok===false)throw new Error(data.message||"No fue posible completar la operación");return data};
+ const callApi=(payload:Record<string,string>)=>new Promise<ApiResponse>((resolve,reject)=>{
+  if(!config.apiUrl){reject(new Error("BACKEND_PENDING"));return}
+  const callback=`__visorDownloadCb_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const params=new URLSearchParams({...payload,callback,_ts:String(Date.now())});
+  const script=document.createElement("script");
+  let done=false;
+  const cleanup=()=>{if(done)return;done=true;window.clearTimeout(timer);script.remove();try{delete (window as any)[callback]}catch{(window as any)[callback]=undefined}};
+  const timer=window.setTimeout(()=>{cleanup();reject(new Error("El servicio de autorización tardó demasiado en responder. Intente nuevamente."))},15000);
+  (window as any)[callback]=(data:ApiResponse)=>{cleanup();if(data?.ok===false)reject(new Error(data.message||"No fue posible completar la operación"));else resolve(data||{})};
+  script.onerror=()=>{cleanup();reject(new Error("No fue posible conectar con el servicio de autorización."))};
+  script.src=`${config.apiUrl}?${params.toString()}`;
+  script.async=true;
+  document.head.appendChild(script);
+ });
 
  const requestAccess=async()=>{
   if(!target||!validEmail(email)){setMessage("Ingrese un correo electrónico válido para solicitar acceso.");return}
   setBusy(true);setMessage("");
   try{
-   if(config.apiUrl){await post({action:"request",email:email.trim().toLowerCase(),coverage:target.coverage,format:target.format});setMessage("Solicitud enviada. Recibirá un correo cuando su acceso sea autorizado.")}
+   if(config.apiUrl){await callApi({action:"request",email:email.trim().toLowerCase(),coverage:target.coverage,format:target.format});setMessage("Solicitud enviada. Recibirá un correo cuando su acceso sea autorizado.")}
    else{
     const subject=encodeURIComponent("Solicitud de acceso · Visor Territorial");
     const body=encodeURIComponent(`Solicito autorización para descargar información del Visor Territorial.\n\nCorreo solicitante: ${email.trim()}\nCobertura: ${target.coverage}\nFormato: ${target.format}\n\nSaludos.`);
@@ -58,8 +72,9 @@ export default function DownloadAccessGate(){
  };
 
  const continueOriginalDownload=()=>{
-  if(!target)return;
-  const btn=target.button;btn.dataset.downloadAccessBypass="1";btn.click();
+  const current=targetRef.current;
+  if(!current)return;
+  const btn=current.button;btn.dataset.downloadAccessBypass="1";btn.click();
   window.setTimeout(()=>{
    const dialog=document.querySelector(".downloadAuthDialog");
    const input=dialog?.querySelector('input[type="password"]') as HTMLInputElement|null;
@@ -75,8 +90,8 @@ export default function DownloadAccessGate(){
   if(!config.apiUrl){setMessage("Este correo todavía no puede validarse automáticamente. Solicite acceso antes de descargar.");return}
   setBusy(true);setMessage("");
   try{
-   await post({action:"download",email:email.trim().toLowerCase(),key:key.trim(),coverage:target.coverage,format:target.format});
-   setTarget(null);setKey("");continueOriginalDownload();
+   await callApi({action:"download",email:email.trim().toLowerCase(),key:key.trim(),coverage:target.coverage,format:target.format});
+   continueOriginalDownload();setTarget(null);setKey("");
   }catch(e:any){setMessage(e?.message||"Correo no autorizado o acceso no disponible.")}
   finally{setBusy(false)}
  };
