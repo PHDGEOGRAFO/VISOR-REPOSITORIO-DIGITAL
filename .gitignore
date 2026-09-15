@@ -7,3 +7,38 @@ dist/
 .env*
 !.env.example
 
+# Archivos privados / maestros: no subir al repositorio
+BBDD_MAESTRA/
+bbdd_maestra/
+CALCULOS/
+Calculos/
+calculos/
+RESPALDOS/
+Respaldos/
+respaldos/
+data/source/
+private/
+privado/
+
+# Formatos de trabajo que no deben publicarse directamente
+*.xlsx
+*.xls
+*.xlsm
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.qgz
+*.qgs
+*.sqlite
+*.sqlite3
+
+# Nombres típicos de bases maestras
+*BBDD*MAESTRA*
+*bbdd*maestra*
+*MASTER*
+*master*
+
+# Los JSON/GeoJSON web autorizados sí pueden permanecer versionados.
