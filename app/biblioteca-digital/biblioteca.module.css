@@ -199,6 +199,161 @@
   color: #556d68;
 }
 
+.coverageSearch {
+  position: relative;
+  z-index: 4;
+  margin-top: 34px;
+}
+
+.searchLabel {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #2f746b;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #afcbc5;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.97);
+  box-shadow: 0 16px 40px rgba(21,63,57,0.11);
+  padding: 0 16px;
+}
+
+.searchBox:focus-within {
+  border-color: #2f746b;
+  box-shadow: 0 0 0 3px rgba(47,116,107,0.12), 0 16px 40px rgba(21,63,57,0.11);
+}
+
+.searchBox input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 17px 0;
+  font-size: 1.05rem;
+  color: #17322f;
+}
+
+.searchBox input::placeholder {
+  color: #80928e;
+}
+
+.searchIcon {
+  font-size: 1.35rem;
+  color: #35766e;
+}
+
+.clearSearch {
+  border: 0;
+  background: transparent;
+  font-size: 1.4rem;
+  color: #617773;
+  cursor: pointer;
+}
+
+.searchHelp,
+.searchState {
+  margin: 8px 4px 0;
+  font-size: 0.87rem;
+  color: #6c817d;
+}
+
+.suggestions {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #c8d9d5;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 22px 52px rgba(20,63,57,0.14);
+}
+
+.suggestionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5ecea;
+  background: #f6faf9;
+  font-size: 0.84rem;
+  color: #667d78;
+}
+
+.suggestionItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 16px;
+  border-bottom: 1px solid #edf2f1;
+}
+
+.suggestionItem:last-child {
+  border-bottom: 0;
+}
+
+.suggestionMain {
+  min-width: 0;
+}
+
+.suggestionMain h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #173f39;
+}
+
+.suggestionMain p {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: #607672;
+}
+
+.suggestionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.suggestionMeta span {
+  border-radius: 999px;
+  background: #eef5f3;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  color: #4e6c67;
+}
+
+.suggestionActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.suggestionActions a {
+  border-radius: 9px;
+  background: #1d685f;
+  color: #fff;
+  padding: 8px 11px;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.availableBadge {
+  border-radius: 999px;
+  background: #e6f2ef;
+  color: #286c63;
+  padding: 6px 9px;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
 @media (max-width: 760px) {
   .page {
     padding: 36px 16px 56px;
@@ -217,5 +372,19 @@
   .sectionHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .suggestionItem {
+    flex-direction: column;
+  }
+
+  .suggestionActions {
+    justify-content: flex-start;
+  }
+
+  .suggestionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }
