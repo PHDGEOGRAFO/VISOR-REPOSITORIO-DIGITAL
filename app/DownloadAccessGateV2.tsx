@@ -18,7 +18,7 @@ export default function DownloadAccessGateV2(){
 
   useEffect(()=>{
     void fetch(CONFIG_URL,{cache:"no-store"})
-      .then(r=>r.json())
+      .then(async r=>(r.ok?await r.json():{}) as Partial<Config>)
       .then((value:Partial<Config>)=>setConfig(c=>({...c,...value})))
       .catch(()=>undefined);
   },[]);
@@ -46,12 +46,37 @@ export default function DownloadAccessGateV2(){
 
   const validEmail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-  async function api(payload:Record<string,string>){
-    if(!config.apiUrl)throw new Error("Servicio de autorización no disponible.");
-    const response=await fetch(config.apiUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
-    const result=await response.json() as ApiResult;
-    if(!response.ok||result.ok===false)throw new Error(result.message||"No fue posible completar la operación.");
-    return result;
+  function api(payload:Record<string,string>){
+    return new Promise<ApiResult>((resolve,reject)=>{
+      if(!config.apiUrl){reject(new Error("Servicio de autorización no disponible."));return;}
+      const callback=`__visorDownloadCb_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const params=new URLSearchParams({...payload,callback,_ts:String(Date.now())});
+      const script=document.createElement("script");
+      let finished=false;
+      const cleanup=()=>{
+        if(finished)return;
+        finished=true;
+        window.clearTimeout(timer);
+        script.remove();
+        try{delete (window as any)[callback];}catch{(window as any)[callback]=undefined;}
+      };
+      const timer=window.setTimeout(()=>{
+        cleanup();
+        reject(new Error("El servicio de autorización tardó demasiado en responder. Intente nuevamente."));
+      },15000);
+      (window as any)[callback]=(result:ApiResult)=>{
+        cleanup();
+        if(result?.ok===false)reject(new Error(result.message||"No fue posible completar la operación."));
+        else resolve(result||{});
+      };
+      script.onerror=()=>{
+        cleanup();
+        reject(new Error("No fue posible conectar con el servicio de autorización."));
+      };
+      script.src=`${config.apiUrl}?${params.toString()}`;
+      script.async=true;
+      document.head.appendChild(script);
+    });
   }
 
   async function requestAccess(){
