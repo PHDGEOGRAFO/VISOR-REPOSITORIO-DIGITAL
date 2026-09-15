@@ -27,6 +27,8 @@ jobs:
         run: python scripts/runtime_deploy_patches.py
       - name: Restaurar limites base exactos
         run: python scripts/fix_base_boundaries.py
+      - name: Preparar geometrías web seguras
+        run: python scripts/prepare_safe_web_geojson.py
       - name: Aplicar bloqueo temporal de coberturas
         run: python scripts/temporary_layer_blocklist.py
       - name: Compactar indice de coberturas
@@ -67,3 +69,4 @@ jobs:
 # 2026-09-08: Riesgo Situacional Barrio 2026 -> DIMENSION SOCIOCULTURAL / Seguridad.
 # 2026-09-08: logo municipal con fondo blanco y fallback SVG.
 # 2026-09-15: control de descargas usa JSONP para evitar fallos CORS con Google Apps Script.
+# 2026-09-15: geometrías web problemáticas se sanean/simplifican solo en el artefacto publicado; fuentes y descargas quedan intactas.
