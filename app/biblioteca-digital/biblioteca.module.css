@@ -1,0 +1,221 @@
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(17, 94, 89, 0.10), transparent 34%),
+    linear-gradient(180deg, #f7faf9 0%, #edf3f1 100%);
+  color: #17322f;
+  padding: 56px 24px 72px;
+}
+
+.shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #286c63;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  color: #143f39;
+}
+
+.lead {
+  max-width: 760px;
+  margin: 22px 0 0;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.65;
+  color: #4e6763;
+}
+
+.searchMock {
+  margin-top: 34px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #cadbd7;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 35px rgba(21, 63, 57, 0.08);
+  padding: 15px 18px;
+  color: #68807c;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 40px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-height: 330px;
+  padding: 30px;
+  border: 1px solid #d0dfdc;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 42px rgba(18, 63, 56, 0.09);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 50px rgba(18, 63, 56, 0.13);
+  border-color: #9fc2bb;
+}
+
+.icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #e4f1ee;
+  font-size: 1.55rem;
+}
+
+.cardKicker {
+  margin: 22px 0 7px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #2f746b;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  line-height: 1.15;
+  color: #153f39;
+}
+
+.cardText {
+  margin: 16px 0 0;
+  line-height: 1.65;
+  color: #5a716d;
+}
+
+.cardAction {
+  margin-top: auto;
+  padding-top: 26px;
+  font-weight: 800;
+  color: #1d685f;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.back {
+  display: inline-flex;
+  margin-bottom: 30px;
+  color: #236c62;
+  text-decoration: none;
+  font-weight: 750;
+}
+
+.repoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.repoCard {
+  padding: 24px;
+  border: 1px solid #d2dfdc;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.94);
+}
+
+.repoTitle {
+  margin: 0;
+  font-size: 1.16rem;
+  color: #183f3a;
+}
+
+.repoMeta {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+  color: #71817e;
+}
+
+.repoText {
+  margin: 14px 0 0;
+  line-height: 1.55;
+  color: #536b67;
+}
+
+.activeLink,
+.pending {
+  display: inline-flex;
+  margin-top: 18px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.activeLink {
+  background: #1d685f;
+  color: white;
+  text-decoration: none;
+}
+
+.activeLink:hover {
+  background: #15554e;
+}
+
+.pending {
+  background: #edf1f0;
+  color: #7b8986;
+  cursor: not-allowed;
+}
+
+.note {
+  margin-top: 28px;
+  padding: 18px 20px;
+  border-left: 4px solid #6da89f;
+  border-radius: 12px;
+  background: #f7fbfa;
+  line-height: 1.55;
+  color: #556d68;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 36px 16px 56px;
+  }
+
+  .cards,
+  .repoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    min-height: 285px;
+    padding: 24px;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
