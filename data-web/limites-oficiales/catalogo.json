@@ -7,7 +7,20 @@
   "capas": {
     "comuna": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/comuna.geojson",
     "barrios": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/barrios.geojson",
-    "territorios": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/limite_territorios_pladeco.geojson"
+    "territorios": "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/limite_territorios_pladeco.geojson",
+    "manzana_censal_2024": {
+      "campo_codigo": "COD_MZN",
+      "copia_web_local": "/VISOR-REPOSITORIO-DIGITAL/data/manzanas.geojson",
+      "urls_canonicas": [
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/NORPONIENTE.geojson",
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/SURPONIENTE.geojson",
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/NORORIENTE.geojson",
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/CENTRO_ORIENTE.geojson",
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/CENTRO_PONIENTE.geojson",
+        "https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/manzanas/SURORIENTE.geojson"
+      ]
+    }
   },
-  "regla": "El Visor Territorial/Biblioteca Digital debe usar estas capas como referencia territorial comun; las coberturas tematicas no deben redefinir barrios, territorios o comuna."
+  "jerarquia_territorial": ["COMUNA", "TERRITORIO", "BARRIO", "MANZANA_CENSAL_2024"],
+  "regla": "El Visor Territorial/Biblioteca Digital debe usar estas capas como referencia territorial comun; las coberturas tematicas no deben redefinir comuna, territorios, barrios ni Manzana Censal 2024."
 }
