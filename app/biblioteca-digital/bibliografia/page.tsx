@@ -14,8 +14,8 @@ const documents = [
     title: "Guía de Criterios de Sustentabilidad",
     meta: "Guía técnica",
     description: "Documento de apoyo para incorporar criterios de sustentabilidad en iniciativas y procesos de planificación.",
-    href: "",
-    active: false,
+    href: "https://documentos.munistgo.cl/guia-de-criterios-de-sustentabilidad-para-la-infraestructura-publica-comunal/",
+    active: true,
   },
   {
     title: "PLADETUR",
