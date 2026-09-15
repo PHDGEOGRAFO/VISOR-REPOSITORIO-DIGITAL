@@ -1,0 +1,56 @@
+name: Estandarizar límites oficiales GIS STGO
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/estandarizar-limites-oficiales-gis-stgo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  estandarizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar fuentes territoriales oficiales
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          replacements = {
+            'url:`${BASE_PATH}/data/comuna.geojson`': 'url:"https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/comuna.geojson"',
+            'url:`${BASE_PATH}/data/urbana/limite-territorios-pladeco.geojson`': 'url:"https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/limite_territorios_pladeco.geojson"',
+            'url:`${BASE_PATH}/data/barrios.geojson`': 'url:"https://raw.githubusercontent.com/PHDGEOGRAFO/GEOINDICADORES/main/data/barrios.geojson"',
+            'source:"00_BASE_TERRITORIAL_VF.gpkg",activeDefault:true': 'source:"GIS STGO · límite oficial común",activeDefault:true',
+            'source:"00_BASE_TERRITORIAL_VF.gpkg"},\n {id:"barrio"': 'source:"GIS STGO · límite oficial común"},\n {id:"barrio"',
+            'source:"00_BASE_TERRITORIAL_VF.gpkg"},\n {id:"manzana"': 'source:"GIS STGO · límite oficial común"},\n {id:"manzana"',
+            'source:"INE · Censo 2024",populationJoin:true': 'source:"INE · Censo 2024 · referencia oficial GIS STGO",populationJoin:true'
+          }
+          original = s
+          for old, new in replacements.items():
+            s = s.replace(old, new)
+          if s == original:
+            print('Sin cambios: las rutas ya estaban estandarizadas o cambió el código esperado.')
+          else:
+            p.write_text(s, encoding='utf-8')
+            print('Rutas de comuna, territorios y barrios estandarizadas. Manzana permanece como copia web Censo 2024 con COD_MZN.')
+          PY
+
+      - name: Guardar cambio
+        run: |
+          if git diff --quiet; then
+            echo "No hay cambios para guardar"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx
+          git commit -m "Estandariza límites oficiales comunes GIS STGO"
+          git push
