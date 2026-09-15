@@ -6,11 +6,11 @@ s = p.read_text(encoding="utf-8")
 
 # Coberturas pesadas temporalmente inhabilitadas mientras se generan
 # versiones web livianas para visualización segura.
+# NDVI se administra por archivo concreto; no se bloquea genéricamente por año.
 blocked = [
     "vf-amb-pol-areas-verdes",
     "vf-amb-pol-averde-prc",
     "vf-amb-pol-mascotas-mz-2026",
-    "vf-amb-pol-ndvi-stgo-oct-2025",
     "vf-amb-pol-ndwi-stgo-2025",
     "vf-amb-pol-plazas-2026",
     "vf-amb-pol-reciclaje-manzana",
@@ -27,8 +27,8 @@ s, n1 = re.subn(
 if n1 != 1:
     raise RuntimeError("No se encontró TEMPORARILY_DISABLED en app/page.tsx")
 
-# Protección adicional: NDVI 2023/2025 y Propiedades Municipales polígono.
-helper = 'const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/ndvi/i.test(id)&&/(2023|2025)/.test(id))||(/propiedad(?:es)?-municipal(?:es)?/i.test(id)&&/(?:^|-)pol(?:-|$)/i.test(id));'
+# Protección adicional vigente: Propiedades Municipales polígono.
+helper = 'const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/propiedad(?:es)?-municipal(?:es)?/i.test(id)&&/(?:^|-)pol(?:-|$)/i.test(id));'
 s, n2 = re.subn(
     r'const temporarilyDisabled=\(id:string\)=>[^;]+;',
     helper,
@@ -39,4 +39,4 @@ if n2 != 1:
     raise RuntimeError("No se encontró temporarilyDisabled en app/page.tsx")
 
 p.write_text(s, encoding="utf-8")
-print("Bloqueo temporal aplicado: coberturas pesadas + NDVI 2023/2025 + Propiedades Municipales polígono.")
+print("Bloqueo temporal aplicado: coberturas pesadas pendientes + Propiedades Municipales polígono.")
