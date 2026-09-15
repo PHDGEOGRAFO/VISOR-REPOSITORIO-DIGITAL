@@ -1,0 +1,15 @@
+{
+  "proyecto": "VISOR-REPOSITORIO-DIGITAL",
+  "estado": "transicion",
+  "fuente_maestra": "Unidad Compartida / BBDD Maestra",
+  "ruta_publicacion_objetivo": "data-web/",
+  "regla": "publicar solo datos derivados y sanitizados necesarios para visualizacion",
+  "campos_publicables_referencia": [
+    "id_publico",
+    "nombre",
+    "categoria",
+    "anio",
+    "atributos_visibles",
+    "geometria"
+  ]
+}
