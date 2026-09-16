@@ -1,0 +1,39 @@
+name: Auditar seguridad de publicación
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  seguridad:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Auditar cambios sensibles
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then BASE="${{ github.event.pull_request.base.sha }}"; else BASE="${{ github.event.before }}"; fi
+          HEAD="${{ github.sha }}"
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then FILES=$(git show --pretty='' --name-only "$HEAD"); else FILES=$(git diff --name-only --diff-filter=AM "$BASE" "$HEAD"); fi
+          BAD=0
+          while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+            lower=$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')
+            case "$lower" in *.env|*.pem|*.key|*.p12|*.pfx|*.kdbx|*.sql|*.bak|*.dump|*.zip|*.7z|*.rar) echo "ERROR: archivo sensible o empaquetado no permitido: $f"; BAD=1;; esac
+            if [[ "$lower" == *"credential"* || "$lower" == *"secret"* || "$lower" == *"token"* || "$lower" == *"password"* || "$lower" == *"contrasena"* || "$lower" == *"contraseña"* ]]; then echo "ERROR: nombre sensible: $f"; BAD=1; fi
+            if [[ -f "$f" ]]; then
+              size=$(wc -c < "$f"); if [[ "$size" -gt 26214400 ]]; then echo "ERROR: archivo mayor a 25 MB requiere revisión: $f"; BAD=1; fi
+              if grep -IEnq '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}' "$f" 2>/dev/null; then echo "ERROR: posible credencial detectada en $f"; BAD=1; fi
+            fi
+          done <<< "$FILES"
+          if [[ "$BAD" -ne 0 ]]; then echo "Publicación bloqueada por control de seguridad GIS STGO."; exit 1; fi
+          echo "Auditoría de seguridad OK."
