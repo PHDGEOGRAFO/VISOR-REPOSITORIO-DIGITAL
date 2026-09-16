@@ -17,6 +17,21 @@ DISCARDED_SLUGS = {
 
 AMBIENTAL_DIR = Path("public/data/ambiental")
 MANIFEST = AMBIENTAL_DIR / "manifest_02_dim_ambiental_vf.json"
+CATALOG = Path("public/catalog/index_coberturas.json")
+
+
+def normalized_keys(item: dict) -> set[str]:
+    slug = str(item.get("slug", "")).strip()
+    item_id = str(item.get("id", "")).strip()
+    map_id = str(item.get("mapId", "")).strip()
+    download = str(item.get("download", "")).strip()
+    download_slug = Path(download).stem if download else ""
+    return {
+        slug,
+        item_id.removeprefix("vf-"),
+        map_id.removeprefix("vf-"),
+        download_slug,
+    }
 
 
 def remove_stale_files() -> None:
@@ -27,31 +42,31 @@ def remove_stale_files() -> None:
             print(f"Eliminado del artefacto: {p}")
 
 
-def clean_manifest() -> None:
-    if not MANIFEST.exists():
-        raise FileNotFoundError(MANIFEST)
-    doc = json.loads(MANIFEST.read_text(encoding="utf-8"))
+def clean_json_items(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    doc = json.loads(path.read_text(encoding="utf-8"))
     items = doc.get("items", [])
     before = len(items)
     kept = []
     removed = []
     for item in items:
-        slug = str(item.get("slug", "")).strip()
-        item_id = str(item.get("id", "")).strip()
-        map_id = str(item.get("mapId", "")).strip()
-        normalized = {slug, item_id.removeprefix("vf-"), map_id.removeprefix("vf-")}
-        if normalized & DISCARDED_SLUGS:
-            removed.append(slug or item_id or map_id)
+        if not isinstance(item, dict):
+            kept.append(item)
+            continue
+        if normalized_keys(item) & DISCARDED_SLUGS:
+            removed.append(item.get("slug") or item.get("id") or item.get("mapId") or item.get("nombre"))
             continue
         kept.append(item)
     doc["items"] = kept
     doc["total"] = len(kept)
-    MANIFEST.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Manifest ambiental: {before} -> {len(kept)} capas")
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{label}: {before} -> {len(kept)} capas")
     for x in removed:
-        print(f"Retirada del catálogo: {x}")
+        print(f"Retirada: {x}")
 
 
 if __name__ == "__main__":
     remove_stale_files()
-    clean_manifest()
+    clean_json_items(MANIFEST, "Manifest ambiental")
+    clean_json_items(CATALOG, "Índice principal")
