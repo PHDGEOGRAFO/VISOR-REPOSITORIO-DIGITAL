@@ -3,13 +3,23 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 # Versiones web seguras. Los GeoPackage de descarga y los archivos fuente del
 # repositorio NO se modifican: este script corre solamente dentro del workspace
 # temporal de GitHub Actions antes del build de Pages.
+#
+# Las coberturas NDVI antiguas fueron descartadas y no se procesan aquí. Los
+# nuevos NDVI 2024/2025/2026 se incorporarán con su nombre oficial (año + mes)
+# y podrán agregarse a SAFE_LAYERS cuando su GeoJSON web esté en el repositorio.
 SAFE_LAYERS = {
     "Área Verde": Path("public/data/ambiental/amb-pol-areas-verdes.geojson"),
+    "Área Verde PRC": Path("public/data/ambiental/amb-pol-averde-prc.geojson"),
+    "Mascotas MZ 2026": Path("public/data/ambiental/amb-pol-mascotas-mz-2026.geojson"),
+    "NDWI 2025": Path("public/data/ambiental/amb-pol-ndwi-stgo-2025.geojson"),
+    "Plazas 2026": Path("public/data/ambiental/amb-pol-plazas-2026.geojson"),
+    "Reciclaje por manzana": Path("public/data/ambiental/amb-pol-reciclaje-manzana.geojson"),
+    "Reciclaje VF": Path("public/data/ambiental/amb-pol-reciclaje-vf.geojson"),
 }
 
 TOLERANCE_DEG = 0.000008  # aprox. submétrico en Santiago
@@ -80,21 +90,26 @@ def cap_points(points: list[list[float]], limit: int) -> list[list[float]]:
 def sanitize_ring(raw_ring: Any) -> list[list[float]] | None:
     if not isinstance(raw_ring, list):
         return None
-    pts = [[round(float(p[0]), ROUND_DECIMALS), round(float(p[1]), ROUND_DECIMALS)] for p in raw_ring if valid_point(p)]
+    pts = [
+        [round(float(p[0]), ROUND_DECIMALS), round(float(p[1]), ROUND_DECIMALS)]
+        for p in raw_ring
+        if valid_point(p)
+    ]
     if len(pts) < 3:
         return None
-    # Quitar duplicados consecutivos.
+
     dedup = [pts[0]]
     for p in pts[1:]:
         if p != dedup[-1]:
             dedup.append(p)
     if len(dedup) < 3:
         return None
-    # Simplificar anillo abierto y cerrarlo al final.
+
     if dedup[0] == dedup[-1]:
         dedup = dedup[:-1]
     if len(dedup) < 3:
         return None
+
     simplified = douglas_peucker(dedup + [dedup[0]], TOLERANCE_DEG)
     if simplified and simplified[0] == simplified[-1]:
         simplified = simplified[:-1]
@@ -123,6 +138,8 @@ def sanitize_geometry(geom: Any) -> dict[str, Any] | None:
     if gtype == "MultiPolygon" and isinstance(coords, list):
         polys = [p for p in (sanitize_polygon(x) for x in coords) if p]
         return {"type": "MultiPolygon", "coordinates": polys} if polys else None
+    # GeometryCollection vacía o tipos que no correspondan al catálogo poligonal
+    # se descartan solamente en la copia web temporal.
     return None
 
 
@@ -181,5 +198,6 @@ def process(path: Path, label: str) -> None:
 if __name__ == "__main__":
     for label, path in SAFE_LAYERS.items():
         if not path.exists():
-            raise FileNotFoundError(path)
+            print(f"{label}: archivo no presente, se omite: {path}")
+            continue
         process(path, label)
