@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/cargar-vf-economica-sociocultural-manzanas.yml'
       - 'scripts/load_vf_dimensions.py'
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
