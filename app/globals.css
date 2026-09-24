@@ -72,3 +72,8 @@
 /* Muestra cromática legible en la lista de tipologías. */
 .analysisTools .categorySummary .categoryToggle{grid-template-columns:12px 16px minmax(0,1fr)!important;column-gap:6px!important;min-height:20px}
 .analysisTools .categorySummary .categoryToggle .categoryColor{width:16px!important;height:16px!important;min-width:16px!important;border:2px solid #fff!important;outline:1px solid #34465d!important;border-radius:3px!important;box-shadow:0 0 0 1px rgba(0,0,0,.12)!important;opacity:1!important}
+
+/* Radio cartográfico configurable de Clúster y Calor. */
+.analysisTools .groupDistance{display:block;margin:7px 0 9px;font-size:10px!important;font-weight:700;color:#173b68}
+.analysisTools .groupDistance input{display:block;width:100%;box-sizing:border-box;margin:5px 0;padding:7px 8px;border:1px solid #8098b4;background:#fff;color:#173b68;font-size:12px!important}
+.analysisTools .groupDistance small{display:block;margin-top:4px;font-weight:400;line-height:1.4}
