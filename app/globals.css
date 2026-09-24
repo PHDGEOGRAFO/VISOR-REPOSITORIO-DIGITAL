@@ -49,10 +49,10 @@
 @media(max-width:900px){.municipalBrand img{width:105px;max-width:30vw;height:38px}}
 
 /* Selección de tipologías dentro de la desagregación */
-.categorySummary{max-height:290px;overflow-y:auto;align-content:start;padding:4px;gap:7px}
+.categorySummary{max-height:290px;overflow-y:auto;align-content:start;padding:4px;gap:4px}
 .categorySummary .categoryActions{grid-column:1/-1;display:flex;gap:5px;position:sticky;top:0;background:#fff;padding:3px 0;z-index:1}
-.categorySummary .categoryActions button{font-size:10px;min-height:28px;border:1px solid #8098b4;background:#fff;color:#173b68;padding:4px 6px;cursor:pointer}
-.disaggregateControl .categorySummary label.categoryToggle{display:flex;align-items:flex-start;gap:6px;min-width:0;font-size:10px;line-height:1.35;font-weight:500;cursor:pointer;color:#243b53}
-.categorySummary .categoryToggle input[type="checkbox"]{appearance:auto;display:inline-block;position:static;opacity:1;width:16px;height:16px;min-width:16px;margin:0;accent-color:#164c87;cursor:pointer}
+.categorySummary .categoryActions button{font-size:8px;min-height:22px;border:1px solid #8098b4;background:#fff;color:#173b68;padding:4px 6px;cursor:pointer}
+.disaggregateControl .categorySummary label.categoryToggle{display:flex;align-items:flex-start;gap:4px;min-width:0;font-size:8px;line-height:1.3;font-weight:500;cursor:pointer;color:#243b53}
+.categorySummary .categoryToggle input[type="checkbox"]{appearance:auto;display:inline-block;position:static;opacity:1;width:12px;height:12px;min-width:12px;margin:0;accent-color:#164c87;cursor:pointer}
 .categorySummary .categoryToggle i{width:11px;height:11px;min-width:11px;margin-top:2px}
-.categorySummary>small{grid-column:1/-1;font-size:10px}
+.categorySummary>small{grid-column:1/-1;font-size:8px}
