@@ -56,3 +56,8 @@
 .categorySummary .categoryToggle input[type="checkbox"]{appearance:auto;display:inline-block;position:static;opacity:1;width:12px;height:12px;min-width:12px;margin:0;accent-color:#164c87;cursor:pointer}
 .categorySummary .categoryToggle i{width:11px;height:11px;min-width:11px;margin-top:2px}
 .categorySummary>small{grid-column:1/-1;font-size:8px}
+
+/* El panel general usa !important en label: restaurar la escala compacta de la leyenda. */
+.analysisTools .disaggregateControl .categorySummary label.categoryToggle{display:flex!important;align-items:flex-start;font-size:8px!important;font-weight:400!important;line-height:1.25!important;letter-spacing:normal!important;text-transform:none!important;margin:0!important;overflow-wrap:anywhere}
+.analysisTools .disaggregateControl .categorySummary label.categoryToggle input[type="checkbox"]{flex:0 0 12px}
+.analysisTools .disaggregateControl .categorySummary label.categoryToggle i{display:inline-block!important;flex:0 0 11px!important;width:11px!important;height:11px!important;border:1px solid #536377;border-radius:50%;margin:1px 1px 0 0}
