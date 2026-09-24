@@ -42,6 +42,8 @@ jobs:
           rows=con.execute('SELECT orden,cobertura,registros,geometria,crs,archivo_maestro FROM ECO_INDICE_COBERTURAS ORDER BY orden').fetchall()
           manifest=[]
           for orden,cobertura,registros,geometria,crs,archivo in rows:
+              if cobertura == "ECO_PTO_CONCESIONES_TURISMO":
+                  continue  # Duplicada de Concesiones DOM 2026; conservar en el GPKG de origen.
               slug=cobertura.lower()
               gj=out/f'{slug}.geojson'
               cv=csvdir/f'{slug}.csv'
