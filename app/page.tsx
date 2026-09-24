@@ -353,7 +353,7 @@ export default function Home(){
  const visibleSelectedData=selected?(visibleData[selected]??empty):empty;
  const sourceFeatures=selectionMode==="Polígono"?(polygon?featuresInPolygon(visibleSelectedData,polygon):visibleSelectedData.features):(multiSelected.length?multiSelected:visibleSelectedData.features);
  const categoryStats=useMemo(()=>{if(!disaggregateField)return[] as [string,number][];const src=data[selected]?.features??[];const out:Record<string,number>={};for(const f of src){const raw=f.properties?.[disaggregateField];const k=raw==null||String(raw).trim()===""?"Sin dato":String(raw);out[k]=(out[k]||0)+1}return Object.entries(out).sort((a,b)=>b[1]-a[1])},[disaggregateField,data,selected]);
- const categoryColors=useMemo(()=>Object.fromEntries(categoryStats.map(([name],index)=>[name,name==="Sin dato"?"#9aa4ae":CATEGORY_PALETTE[index%CATEGORY_PALETTE.length]])),[categoryStats]);
+ const categoryColors=useMemo(()=>Object.fromEntries(categoryStats.map(([name],index)=>[name,name==="Sin dato"?"#9aa4ae":CATEGORY_PALETTE[index]??`hsl(${(index*137.508)%360} 82% ${index%2?36:52}%)`])),[categoryStats]);
  const manzanasAnalisis=polygon?featuresInPolygon(visibleData.manzana??empty,polygon):[];
  const nperSum=manzanasAnalisis.reduce((a,f)=>a+(Number(f.properties.n_per)||0),0),pointCount=visibleSelectedData.features.filter(f=>f.geometry.type==="Point").length;
  const manzanaPopulationSum=(data.manzana?.features??[]).reduce((s,f)=>s+(Number(f.properties.n_per)||0),0);
