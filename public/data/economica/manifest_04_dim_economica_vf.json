@@ -1,6 +1,6 @@
 {
   "file": "04_DIM_ECONOMICA_VF.gpkg",
-  "total": 22,
+  "total": 21,
   "items": [
     {
       "table": "ECO_LIN_ESTACIONAMIENTOS_TURISMO",
@@ -179,24 +179,6 @@
       "container": "04_DIM_ECONOMICA_VF.gpkg",
       "id": "vf-eco-pto-concesiones-permisos-2026",
       "mapId": "vf-eco-pto-concesiones-permisos-2026",
-      "removed_sensitive": [],
-      "crs_override_wgs84": false
-    },
-    {
-      "table": "ECO_PTO_CONCESIONES_TURISMO",
-      "slug": "eco-pto-concesiones-turismo",
-      "geometry": "POINT",
-      "source_srid": 32719,
-      "records": 12,
-      "web_records": 12,
-      "theme": "ECO",
-      "dimension": "DIMENSIÓN ECONÓMICA",
-      "sector": "Actividad económica y comercio",
-      "geojson": "/data/economica/eco-pto-concesiones-turismo.geojson",
-      "gpkg": "/data/gpkg/04_DIM_ECONOMICA_VF.gpkg",
-      "container": "04_DIM_ECONOMICA_VF.gpkg",
-      "id": "vf-eco-pto-concesiones-turismo",
-      "mapId": "vf-eco-pto-concesiones-turismo",
       "removed_sensitive": [],
       "crs_override_wgs84": false
     },
@@ -401,5 +383,7 @@
       "crs_override_wgs84": false
     }
   ],
-  "skipped": []
+  "skipped": [
+    "ECO_PTO_CONCESIONES_TURISMO (duplicada de Concesiones DOM 2026)"
+  ]
 }
