@@ -109,3 +109,39 @@
 @media(max-width:1180px){.workspace{grid-template-columns:260px minmax(380px,1fr) 330px}.rightToolTabs button{font-size:7.5px}}
 @media(max-width:950px){.workspace{grid-template-columns:250px 1fr}.inspector{grid-column:1/-1}.rightToolDock{min-height:420px}.rightToolBody{max-height:520px}}
 @media(max-width:650px){.rightToolTabs{grid-template-columns:repeat(2,1fr)}.rightToolTabs button{font-size:9px}.rightToolBody{max-height:none}.dockTableScroll{max-height:320px}}
+
+
+/* Corrección: Herramientas del mapa integradas en columna derecha */
+.inspector .analysisTools{
+  position:static!important;
+  inset:auto!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  width:auto!important;
+  max-width:none!important;
+  margin:0!important;
+  z-index:auto!important;
+  box-shadow:none!important;
+  resize:none!important;
+  overflow:visible!important;
+  background:#fff!important;
+  border:1px solid #b9c7d6!important;
+  padding:12px!important;
+  flex:0 0 auto;
+}
+.inspector .analysisTools>b{display:block;margin-bottom:9px;color:#123f72;text-transform:uppercase;letter-spacing:.05em}
+.inspector .activeCoverage,
+.inspector .selectionBlock,
+.inspector .visualBlock{position:static!important;width:auto!important;margin:0 0 10px!important;box-sizing:border-box}
+.inspector .analysisTools select,
+.inspector .analysisTools input{max-width:100%;box-sizing:border-box}
+.inspector .analysisTools .categorySummary{max-height:220px}
+.inspector .analysisTools .toolButtons,
+.inspector .analysisTools .selectionButtons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.inspector .analysisTools .toolButtons button,
+.inspector .analysisTools .selectionButtons button{width:100%;min-width:0}
+@media(max-width:950px){
+  .inspector .analysisTools{order:2}
+}
