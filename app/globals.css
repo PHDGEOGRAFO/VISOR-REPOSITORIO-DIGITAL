@@ -197,3 +197,168 @@
   display:block;
   clear:both;
 }
+
+
+/* Panel izquierdo compacto + árbol de capas tipo QGIS */
+.sidebarQgis{padding:10px!important;gap:10px;overflow:auto}
+.pladecoTitle{
+  border-left:4px solid #123f72;
+  background:#f3f6f9;
+  padding:11px 12px;
+  color:#123f72;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.compactDimensions{display:grid!important;gap:6px!important;margin:0!important}
+.compactDimensions button{
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr) 28px!important;
+  align-items:center!important;
+  gap:7px!important;
+  min-height:46px!important;
+  padding:7px 8px!important;
+  border:1px solid #c7d2df!important;
+  border-left:4px solid #123f72!important;
+  background:#fff!important;
+  text-align:left!important;
+}
+.compactDimensions .dimensionCode{
+  font-size:11px!important;
+  font-weight:800!important;
+  color:#123f72!important;
+  letter-spacing:.04em!important;
+}
+.compactDimensions strong{font-size:9px!important;color:#1f334a!important;line-height:1.2!important}
+.compactDimensions b{justify-self:end;font-size:9px!important;color:#123f72!important}
+.compactDimensions small{display:none!important}
+.qgisSearch{
+  margin:0!important;
+  border:1px solid #c7d2df!important;
+  padding:10px!important;
+  background:#fff!important;
+}
+.qgisSearch label{
+  display:block!important;
+  margin-bottom:6px!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  color:#123f72!important;
+}
+.qgisSearch input{
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:9px 10px!important;
+  border:1px solid #aebdcd!important;
+  background:#fff!important;
+  font-size:10px!important;
+}
+.activeLayersPanel{
+  border:1px solid #c7d2df;
+  background:#fff;
+  min-height:150px;
+}
+.activeLayersPanel>header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:8px;
+  padding:9px 10px;
+  border-bottom:1px solid #d7e0e8;
+  background:#f8fafc;
+}
+.activeLayersPanel>header b{font-size:11px;color:#123f72}
+.activeLayersPanel>header small{font-size:7.5px;color:#75869a}
+.activeLayersTree{display:grid}
+.emptyActiveLayers{margin:0;padding:14px 10px;color:#7a8794;font-size:8.5px}
+.activeLayerNode{border-bottom:1px solid #e2e8ee;background:#fff}
+.activeLayerNode:last-child{border-bottom:0}
+.activeLayerNode.selected>.activeLayerRow{background:#eef4fb}
+.activeLayerRow{
+  display:grid;
+  grid-template-columns:22px 22px 15px minmax(0,1fr) 22px;
+  align-items:center;
+  gap:4px;
+  min-height:36px;
+  padding:3px 5px;
+}
+.treeExpand,.layerVisibility,.treeLayerName,.treeLayerMenu{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+}
+.treeExpand{font-size:18px;color:#315f8e;padding:0;line-height:1}
+.layerVisibility{
+  width:18px;height:18px;
+  border:1px solid #8ba0b5!important;
+  border-radius:3px;
+  display:grid;place-items:center;
+  color:#fff;font-size:12px;font-weight:800;
+  padding:0!important;
+}
+.layerVisibility.checked{background:#1976d2;border-color:#1976d2!important}
+.layerVisibility.partial{background:#5f88b3;border-color:#5f88b3!important}
+.treeLayerSymbol{display:block;width:11px;height:11px;border:2px solid;border-radius:2px;box-sizing:border-box}
+.treeLayerName{text-align:left;padding:5px 2px;color:#1e3550;font-size:9px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.treeLayerMenu{font-size:15px;color:#6e8195;padding:0}
+.activeLayerChildren{
+  margin:0 8px 7px 29px;
+  padding:6px 6px 7px 11px;
+  border-left:1px dashed #b8c6d4;
+  background:#fbfcfe;
+}
+.treeDisaggregate{
+  display:grid!important;
+  gap:4px!important;
+  margin-bottom:6px!important;
+  color:#53677d!important;
+  font-size:8px!important;
+  font-weight:700!important;
+}
+.treeDisaggregate select{
+  width:100%;
+  padding:5px 6px;
+  border:1px solid #b6c4d2;
+  background:#fff;
+  font-size:8px;
+}
+.treeCategories{display:grid;gap:2px}
+.treeCategory{
+  display:grid!important;
+  grid-template-columns:16px 12px minmax(0,1fr) auto;
+  align-items:center!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:3px 2px!important;
+  color:#42586f!important;
+  font-size:8px!important;
+  font-weight:400!important;
+  text-transform:none!important;
+  letter-spacing:normal!important;
+}
+.treeCategory input[type="checkbox"]{
+  appearance:auto!important;
+  position:static!important;
+  opacity:1!important;
+  width:13px!important;height:13px!important;
+  margin:0!important;
+  accent-color:#1976d2;
+}
+.treeCategorySymbol{display:block;width:10px;height:10px;border:1px solid #fff;outline:1px solid #8798aa;border-radius:2px}
+.treeCategoryName{min-width:0;overflow-wrap:anywhere}
+.treeCategory small{font-size:7px!important;color:#7a8897!important}
+.allHiddenNote{display:block;margin-top:4px;color:#a35e50;font-size:7.5px}
+.clearActiveLayers{
+  width:100%;
+  border:0;
+  background:#123f72;
+  color:#fff;
+  padding:9px 10px;
+  font-size:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.compactIndexButton{margin-top:0!important}
+@media(max-width:950px){
+  .sidebarQgis{height:auto!important;max-height:none!important}
+}
