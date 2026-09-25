@@ -145,3 +145,55 @@
 @media(max-width:950px){
   .inspector .analysisTools{order:2}
 }
+
+
+/* Corrección definitiva de superposición en columna derecha */
+.inspector{
+  display:block!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  height:100%!important;
+  max-height:100%!important;
+}
+.inspector>.santiPanel,
+.inspector>.analysisTools,
+.inspector>.rightToolDock{
+  position:static!important;
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:0 0 12px 0!important;
+  box-sizing:border-box!important;
+  float:none!important;
+  clear:both!important;
+  transform:none!important;
+}
+.inspector>.rightToolDock{
+  overflow:visible!important;
+  flex:none!important;
+}
+.inspector .rightToolHead,
+.inspector .rightToolTabs,
+.inspector .rightToolBody{
+  position:static!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+.inspector .rightToolBody{
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.inspector .analysisTools{
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.inspector .analysisTools::after{
+  content:"";
+  display:block;
+  clear:both;
+}
