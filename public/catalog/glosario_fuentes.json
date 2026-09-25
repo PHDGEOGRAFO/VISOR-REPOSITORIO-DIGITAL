@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "actualizado": "2026-09-25",
+  "terminos": [
+    {
+      "termino": "Fuente institucional",
+      "definicion": "Organismo responsable de publicar o custodiar el dato de origen."
+    },
+    {
+      "termino": "Fuente oficial externa",
+      "definicion": "Dato publicado por una institución pública distinta de la Municipalidad de Santiago y registrado para complementar, validar o actualizar coberturas locales."
+    },
+    {
+      "termino": "Conector",
+      "definicion": "Mecanismo de acceso a una fuente externa mediante API, ArcGIS REST, WMS/WFS, CSV, XLSX, CKAN/datos.gob.cl u otro recurso automatizable."
+    },
+    {
+      "termino": "Tipo de conexión",
+      "definicion": "Tecnología o formato usado para acceder a la fuente: API, ArcGIS REST, WMS/WFS, CSV, XLSX, GeoJSON, CKAN u otro."
+    },
+    {
+      "termino": "Sincronización controlada",
+      "definicion": "Actualización en la que la nueva versión se descarga y compara con la base vigente antes de modificar el GeoPackage maestro."
+    },
+    {
+      "termino": "RAW",
+      "definicion": "Copia original de la fuente externa, conservada sin alterar para trazabilidad y respaldo."
+    },
+    {
+      "termino": "Año fuente",
+      "definicion": "Año al que corresponde la información publicada por la institución de origen; puede diferir de la fecha de descarga."
+    },
+    {
+      "termino": "Última actualización",
+      "definicion": "Fecha en que GIS STGO revisó o sincronizó la fuente registrada."
+    },
+    {
+      "termino": "Estado de conexión",
+      "definicion": "Situación operativa del conector: disponible, pendiente de validación, sin cambios, fuente modificada o fuente caída."
+    },
+    {
+      "termino": "Cobertura local validada",
+      "definicion": "Capa incorporada al repositorio municipal después de controles de estructura, geometría, atributos y consistencia territorial."
+    },
+    {
+      "termino": "No publicado en mapa",
+      "definicion": "La fuente está registrada en catálogo, pero todavía no existe una capa validada habilitada para visualización o descarga."
+    }
+  ]
+}
