@@ -5,6 +5,8 @@ import styles from "./biblioteca.module.css";
 
 const BASE_PATH="/VISOR-REPOSITORIO-DIGITAL";
 
+type GlossaryTerm={termino:string;definicion:string};
+
 type CatalogItem={
   id:string;
   nombre:string;
@@ -80,10 +82,28 @@ function score(i:CatalogItem,terms:string[]){
 export default function CoverageSearch(){
   const [items,setItems]=useState<CatalogItem[]>([]);
   const [query,setQuery]=useState("");
+  const [glossary,setGlossary]=useState<GlossaryTerm[]>([]);
   const [status,setStatus]=useState<"loading"|"ready"|"error">("loading");
 
   useEffect(()=>{
-    Promise.all([\n      fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}),\n      fetch(`${BASE_PATH}/catalog/conectores_fuentes_oficiales.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}))\n    ])\n      .then(([catalogo,conectores])=>{\n        const base=Array.isArray(catalogo.items)?catalogo.items:[];\n        const oficiales=Array.isArray(conectores.items)?conectores.items:[];\n        setItems([...base,...oficiales]);\n        setStatus("ready");\n      })\n      .catch(()=>setStatus("error"));
+    Promise.all([
+      fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}),
+      fetch(`${BASE_PATH}/catalog/conectores_fuentes_oficiales.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}))
+    ])
+      .then(([catalogo,conectores])=>{
+        const base=Array.isArray(catalogo.items)?catalogo.items:[];
+        const oficiales=Array.isArray(conectores.items)?conectores.items:[];
+        setItems([...base,...oficiales]);
+        setStatus("ready");
+      })
+      .catch(()=>setStatus("error"));
+  },[]);
+
+  useEffect(()=>{
+    fetch(`${BASE_PATH}/catalog/glosario_fuentes.json`,{cache:"no-store"})
+      .then(r=>r.ok?r.json():{terminos:[]})
+      .then(j=>setGlossary(Array.isArray(j.terminos)?j.terminos:[]))
+      .catch(()=>setGlossary([]));
   },[]);
 
   const results=useMemo(()=>{
@@ -115,6 +135,13 @@ export default function CoverageSearch(){
     {status==="loading"&&<div className={styles.searchState}>Cargando catálogo de coberturas…</div>}
     {status==="error"&&<div className={styles.searchState}>No fue posible cargar el catálogo en este momento.</div>}
 
+    {glossary.length>0&&<details className={styles.sourceGlossary}>
+      <summary>Glosario de fuentes y conectores</summary>
+      <div className={styles.glossaryGrid}>
+        {glossary.map(g=><div key={g.termino}><strong>{g.termino}</strong><span>{g.definicion}</span></div>)}
+      </div>
+    </details>}
+
     {query&&status==="ready"&&<div className={styles.suggestions}>
       <div className={styles.suggestionHeader}><b>{results.length?"Sugerencias":"Sin coincidencias"}</b><span>{items.length} coberturas indexadas</span></div>
       {results.map(i=><article className={styles.suggestionItem} key={i.id}>
@@ -134,6 +161,7 @@ export default function CoverageSearch(){
         </div>
         <div className={styles.suggestionActions}>
           <a href={`${BASE_PATH}/`}>Abrir visor</a>
+          {i.fuenteUrl&&<a className={styles.sourceLink} href={i.fuenteUrl} target="_blank" rel="noreferrer">Fuente oficial ↗</a>}
           {i.download&&<span className={styles.availableBadge}>Disponible</span>}
         </div>
       </article>)}
