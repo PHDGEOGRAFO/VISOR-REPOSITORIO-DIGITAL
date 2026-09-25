@@ -11,7 +11,7 @@ export default function BibliotecaDigitalPage() {
         <h1 className={styles.title}>Biblioteca Digital</h1>
         <p className={styles.lead}>
           Acceso institucional a información territorial y documentación técnica de apoyo a la planificación.
-          Busca directamente una cobertura o selecciona uno de los dos repositorios.
+          El catálogo integra coberturas municipales y fuentes oficiales conectables, manteniendo trazabilidad de institución, año y mecanismo de actualización.
         </p>
 
         <CoverageSearch />
@@ -23,7 +23,8 @@ export default function BibliotecaDigitalPage() {
             <h2 className={styles.cardTitle}>Repositorio Territorial de Coberturas GIS / GeoPackage</h2>
             <p className={styles.cardText}>
               Consulta, visualiza y descarga coberturas territoriales vigentes e históricas organizadas por dimensión,
-              temática y año.
+              temática y año. Las fuentes oficiales externas se incorporan al mismo catálogo y se distinguen por institución,
+              año, tipo de conexión y estado de sincronización.
             </p>
             <span className={styles.cardAction}>Ingresar al repositorio →</span>
           </a>

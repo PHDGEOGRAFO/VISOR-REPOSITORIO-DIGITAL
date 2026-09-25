@@ -1,0 +1,27 @@
+name: Validar conectores fuentes oficiales
+
+on:
+  push:
+    branches:
+      - feature/conectores-fuentes-oficiales
+  pull_request:
+    paths:
+      - "app/**"
+      - "public/catalog/**"
+      - "DATA_CONTRACT.md"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Compilar
+        run: npx vinext build

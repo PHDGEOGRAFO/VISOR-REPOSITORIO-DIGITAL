@@ -5,6 +5,8 @@ import styles from "./biblioteca.module.css";
 
 const BASE_PATH="/VISOR-REPOSITORIO-DIGITAL";
 
+type GlossaryTerm={termino:string;definicion:string};
+
 type CatalogItem={
   id:string;
   nombre:string;
@@ -24,6 +26,14 @@ type CatalogItem={
   observaciones?:string;
   verEnMapa?:boolean;
   download?:string;
+  fuenteInstitucional?:string;
+  fuenteUrl?:string;
+  fuenteAnio?:string|number;
+  tipoOrigen?:string;
+  tipoConexion?:string;
+  frecuenciaActualizacion?:string;
+  ultimaActualizacion?:string;
+  estadoConexion?:string;
 };
 
 const synonyms:Record<string,string[]>= {
@@ -51,7 +61,7 @@ function expandedQuery(q:string){
 }
 
 function searchable(i:CatalogItem){
-  return norm([i.nombre,i.tema,i.dimensionPladeco,i.sector,i.carpeta,i.geometria,i.escala,i.contenedor,i.tipoContenedor,i.subcapa,i.estado,i.validacion,i.anio,i.observaciones].filter(Boolean).join(" "));
+  return norm([i.nombre,i.tema,i.dimensionPladeco,i.sector,i.carpeta,i.geometria,i.escala,i.contenedor,i.tipoContenedor,i.subcapa,i.estado,i.validacion,i.anio,i.observaciones,i.fuenteInstitucional,i.fuenteAnio,i.tipoOrigen,i.tipoConexion,i.frecuenciaActualizacion,i.ultimaActualizacion,i.estadoConexion].filter(Boolean).join(" "));
 }
 
 function score(i:CatalogItem,terms:string[]){
@@ -72,13 +82,28 @@ function score(i:CatalogItem,terms:string[]){
 export default function CoverageSearch(){
   const [items,setItems]=useState<CatalogItem[]>([]);
   const [query,setQuery]=useState("");
+  const [glossary,setGlossary]=useState<GlossaryTerm[]>([]);
   const [status,setStatus]=useState<"loading"|"ready"|"error">("loading");
 
   useEffect(()=>{
-    fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"})
-      .then(r=>{if(!r.ok)throw new Error("catalog");return r.json()})
-      .then(j=>{setItems(Array.isArray(j.items)?j.items:[]);setStatus("ready")})
+    Promise.all([
+      fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}),
+      fetch(`${BASE_PATH}/catalog/conectores_fuentes_oficiales.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}))
+    ])
+      .then(([catalogo,conectores])=>{
+        const base=Array.isArray(catalogo.items)?catalogo.items:[];
+        const oficiales=Array.isArray(conectores.items)?conectores.items:[];
+        setItems([...base,...oficiales]);
+        setStatus("ready");
+      })
       .catch(()=>setStatus("error"));
+  },[]);
+
+  useEffect(()=>{
+    fetch(`${BASE_PATH}/catalog/glosario_fuentes.json`,{cache:"no-store"})
+      .then(r=>r.ok?r.json():{terminos:[]})
+      .then(j=>setGlossary(Array.isArray(j.terminos)?j.terminos:[]))
+      .catch(()=>setGlossary([]));
   },[]);
 
   const results=useMemo(()=>{
@@ -105,10 +130,17 @@ export default function CoverageSearch(){
       />
       {query&&<button className={styles.clearSearch} onClick={()=>setQuery("")} aria-label="Limpiar búsqueda">×</button>}
     </div>
-    <p className={styles.searchHelp}>Busca por nombre, dimensión, temática, año, geometría o GeoPackage. El buscador también reconoce términos relacionados.</p>
+    <p className={styles.searchHelp}>Busca por nombre, dimensión, temática, año, geometría, GeoPackage, institución o tipo de conexión. El catálogo integra coberturas locales y fuentes oficiales conectables.</p>
 
     {status==="loading"&&<div className={styles.searchState}>Cargando catálogo de coberturas…</div>}
     {status==="error"&&<div className={styles.searchState}>No fue posible cargar el catálogo en este momento.</div>}
+
+    {glossary.length>0&&<details className={styles.sourceGlossary}>
+      <summary>Glosario de fuentes y conectores</summary>
+      <div className={styles.glossaryGrid}>
+        {glossary.map(g=><div key={g.termino}><strong>{g.termino}</strong><span>{g.definicion}</span></div>)}
+      </div>
+    </details>}
 
     {query&&status==="ready"&&<div className={styles.suggestions}>
       <div className={styles.suggestionHeader}><b>{results.length?"Sugerencias":"Sin coincidencias"}</b><span>{items.length} coberturas indexadas</span></div>
@@ -121,10 +153,15 @@ export default function CoverageSearch(){
             {i.anio&&<span>{i.anio}</span>}
             {i.registros!==undefined&&i.registros!==""&&<span>{Number(i.registros).toLocaleString("es-CL")} registros</span>}
             {i.contenedor&&<span>{i.contenedor}</span>}
+            {i.fuenteInstitucional&&<span>Fuente: {i.fuenteInstitucional}</span>}
+            {(i.fuenteAnio||i.anio)&&<span>Año fuente: {i.fuenteAnio||i.anio}</span>}
+            {i.tipoConexion&&<span>Conexión: {i.tipoConexion}</span>}
+            {i.estadoConexion&&<span>{i.estadoConexion}</span>}
           </div>
         </div>
         <div className={styles.suggestionActions}>
           <a href={`${BASE_PATH}/`}>Abrir visor</a>
+          {i.fuenteUrl&&<a className={styles.sourceLink} href={i.fuenteUrl} target="_blank" rel="noreferrer">Fuente oficial ↗</a>}
           {i.download&&<span className={styles.availableBadge}>Disponible</span>}
         </div>
       </article>)}
