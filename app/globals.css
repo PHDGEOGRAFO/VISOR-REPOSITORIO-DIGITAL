@@ -362,3 +362,106 @@
 @media(max-width:950px){
   .sidebarQgis{height:auto!important;max-height:none!important}
 }
+
+
+/* Corrección 2026-09-25: árbol de desagregación visible y pie sin superposición */
+.sidebarQgis{
+  display:flex!important;
+  flex-direction:column!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+.sidebarQgis .activeLayersPanel{
+  display:grid!important;
+  grid-template-rows:auto minmax(180px,360px) auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:hidden!important;
+  flex:0 0 auto!important;
+  position:static!important;
+}
+.sidebarQgis .activeLayersTree{
+  display:block!important;
+  min-height:180px!important;
+  max-height:360px!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  position:static!important;
+  padding:0 0 8px 0!important;
+  scrollbar-gutter:stable;
+}
+.sidebarQgis .activeLayersFooter{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:7px!important;
+  padding:8px!important;
+  border-top:1px solid #d7e0e8!important;
+  background:#fff!important;
+  position:static!important;
+  inset:auto!important;
+  z-index:auto!important;
+  transform:none!important;
+}
+.sidebarQgis .activeLayersFooter .clearActiveLayers,
+.sidebarQgis .activeLayersFooter .compactIndexButton{
+  display:block!important;
+  position:static!important;
+  inset:auto!important;
+  width:100%!important;
+  min-height:32px!important;
+  margin:0!important;
+  transform:none!important;
+  z-index:auto!important;
+  box-sizing:border-box!important;
+}
+.sidebarQgis .activeLayerNode,
+.sidebarQgis .activeLayerChildren,
+.sidebarQgis .treeCategories,
+.sidebarQgis .treeCategory{
+  position:static!important;
+  transform:none!important;
+}
+.sidebarQgis .activeLayerChildren{
+  display:block!important;
+  margin:0 8px 8px 29px!important;
+  padding:7px 7px 10px 11px!important;
+  overflow:visible!important;
+}
+.sidebarQgis .treeDisaggregate{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:4px!important;
+  margin:0 0 8px 0!important;
+}
+.sidebarQgis .treeDisaggregate select{
+  display:block!important;
+  width:100%!important;
+  min-height:28px!important;
+  position:static!important;
+  box-sizing:border-box!important;
+}
+.sidebarQgis .treeCategories{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:3px!important;
+  margin-top:5px!important;
+  padding-bottom:3px!important;
+  overflow:visible!important;
+}
+.sidebarQgis .treeCategory{
+  display:grid!important;
+  grid-template-columns:16px 12px minmax(0,1fr) auto!important;
+  min-height:22px!important;
+  align-items:center!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+@media(max-height:760px){
+  .sidebarQgis .activeLayersPanel{
+    grid-template-rows:auto minmax(150px,290px) auto!important;
+  }
+  .sidebarQgis .activeLayersTree{
+    min-height:150px!important;
+    max-height:290px!important;
+  }
+}
