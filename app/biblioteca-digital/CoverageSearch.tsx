@@ -24,6 +24,14 @@ type CatalogItem={
   observaciones?:string;
   verEnMapa?:boolean;
   download?:string;
+  fuenteInstitucional?:string;
+  fuenteUrl?:string;
+  fuenteAnio?:string|number;
+  tipoOrigen?:string;
+  tipoConexion?:string;
+  frecuenciaActualizacion?:string;
+  ultimaActualizacion?:string;
+  estadoConexion?:string;
 };
 
 const synonyms:Record<string,string[]>= {
@@ -51,7 +59,7 @@ function expandedQuery(q:string){
 }
 
 function searchable(i:CatalogItem){
-  return norm([i.nombre,i.tema,i.dimensionPladeco,i.sector,i.carpeta,i.geometria,i.escala,i.contenedor,i.tipoContenedor,i.subcapa,i.estado,i.validacion,i.anio,i.observaciones].filter(Boolean).join(" "));
+  return norm([i.nombre,i.tema,i.dimensionPladeco,i.sector,i.carpeta,i.geometria,i.escala,i.contenedor,i.tipoContenedor,i.subcapa,i.estado,i.validacion,i.anio,i.observaciones,i.fuenteInstitucional,i.fuenteAnio,i.tipoOrigen,i.tipoConexion,i.frecuenciaActualizacion,i.ultimaActualizacion,i.estadoConexion].filter(Boolean).join(" "));
 }
 
 function score(i:CatalogItem,terms:string[]){
@@ -75,10 +83,7 @@ export default function CoverageSearch(){
   const [status,setStatus]=useState<"loading"|"ready"|"error">("loading");
 
   useEffect(()=>{
-    fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"})
-      .then(r=>{if(!r.ok)throw new Error("catalog");return r.json()})
-      .then(j=>{setItems(Array.isArray(j.items)?j.items:[]);setStatus("ready")})
-      .catch(()=>setStatus("error"));
+    Promise.all([\n      fetch(`${BASE_PATH}/catalog/index_coberturas.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}),\n      fetch(`${BASE_PATH}/catalog/conectores_fuentes_oficiales.json`,{cache:"no-store"}).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}))\n    ])\n      .then(([catalogo,conectores])=>{\n        const base=Array.isArray(catalogo.items)?catalogo.items:[];\n        const oficiales=Array.isArray(conectores.items)?conectores.items:[];\n        setItems([...base,...oficiales]);\n        setStatus("ready");\n      })\n      .catch(()=>setStatus("error"));
   },[]);
 
   const results=useMemo(()=>{
@@ -105,7 +110,7 @@ export default function CoverageSearch(){
       />
       {query&&<button className={styles.clearSearch} onClick={()=>setQuery("")} aria-label="Limpiar búsqueda">×</button>}
     </div>
-    <p className={styles.searchHelp}>Busca por nombre, dimensión, temática, año, geometría o GeoPackage. El buscador también reconoce términos relacionados.</p>
+    <p className={styles.searchHelp}>Busca por nombre, dimensión, temática, año, geometría, GeoPackage, institución o tipo de conexión. El catálogo integra coberturas locales y fuentes oficiales conectables.</p>
 
     {status==="loading"&&<div className={styles.searchState}>Cargando catálogo de coberturas…</div>}
     {status==="error"&&<div className={styles.searchState}>No fue posible cargar el catálogo en este momento.</div>}
@@ -121,6 +126,10 @@ export default function CoverageSearch(){
             {i.anio&&<span>{i.anio}</span>}
             {i.registros!==undefined&&i.registros!==""&&<span>{Number(i.registros).toLocaleString("es-CL")} registros</span>}
             {i.contenedor&&<span>{i.contenedor}</span>}
+            {i.fuenteInstitucional&&<span>Fuente: {i.fuenteInstitucional}</span>}
+            {(i.fuenteAnio||i.anio)&&<span>Año fuente: {i.fuenteAnio||i.anio}</span>}
+            {i.tipoConexion&&<span>Conexión: {i.tipoConexion}</span>}
+            {i.estadoConexion&&<span>{i.estadoConexion}</span>}
           </div>
         </div>
         <div className={styles.suggestionActions}>
