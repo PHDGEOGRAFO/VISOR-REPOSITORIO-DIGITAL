@@ -60,3 +60,19 @@ Las fuentes oficiales externas se integran al mismo catálogo de coberturas y de
 Un conector registrado no equivale a una capa publicada. Antes de modificar el GeoPackage maestro se debe conservar una copia RAW de la fuente, filtrar a la comuna de Santiago cuando corresponda, comparar altas/bajas/cambios con la cobertura vigente y validar geometría, campos clave, CRS y consistencia territorial.
 
 Los conectores se registran en `public/catalog/conectores_fuentes_oficiales.json` y el glosario asociado en `public/catalog/glosario_fuentes.json`. El Índice y el buscador de Biblioteca Digital consumen estos registros junto al catálogo existente.
+
+
+## Alcance territorial de conectores
+
+Para el estado actual de GIS STGO, toda fuente oficial externa debe procesarse y publicarse exclusivamente para la comuna de Santiago.
+
+Regla operativa:
+- El archivo RAW puede conservar el universo nacional, regional o provincial solo como respaldo interno.
+- La capa derivada destinada al catálogo, índice, visor y GeoPackage maestro debe contener únicamente registros pertenecientes a la comuna de Santiago.
+- No se publicarán capas de provincia de Santiago ni de la Región Metropolitana completa, salvo instrucción futura explícita.
+- Cuando la fuente disponga de código comunal, usar ese identificador como criterio preferente de filtro.
+- Cuando no exista código comunal pero sí geometría o coordenadas, aplicar filtro espacial contra el límite oficial de la comuna de Santiago.
+- Antes de publicar, validar que no existan registros fuera del límite comunal.
+
+Secuencia obligatoria:
+Fuente oficial -> RAW -> filtro comuna de Santiago -> comparación con cobertura vigente -> validación -> GeoPackage maestro -> visor.
