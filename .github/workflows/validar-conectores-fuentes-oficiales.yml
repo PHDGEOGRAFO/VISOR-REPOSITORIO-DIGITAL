@@ -24,4 +24,4 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
       - name: Compilar
-        run: npm run build
+        run: npx vinext build
