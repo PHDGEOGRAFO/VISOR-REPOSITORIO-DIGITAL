@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "actualizado": "2026-09-25",
-  "descripcion": "Registro de fuentes oficiales incorporadas al catálogo GIS STGO. Estos registros pueden representar conectores disponibles aunque la capa todavía no esté publicada en mapa.",
+  "descripcion": "Registro de fuentes oficiales incorporadas al catálogo GIS STGO. Toda publicación y consumo visible se limita exclusivamente a la comuna de Santiago; universos nacionales, regionales o provinciales se conservan solo como RAW interno.",
   "items": [
     {
       "id": "con-oficial-ine-censo-2024",
@@ -11,7 +11,7 @@
       "sector": "Demografía y población",
       "carpeta": "Fuentes oficiales conectadas",
       "geometria": "Tabla / cobertura territorial",
-      "escala": "Comuna / manzana según recurso",
+      "escala": "Comuna de Santiago",
       "contenedor": "Conector fuente oficial",
       "tipoContenedor": "FUENTE OFICIAL",
       "subcapa": "Censo 2024",
@@ -28,8 +28,8 @@
       "tipoConexion": "Portal oficial / descarga / visualizador",
       "frecuenciaActualizacion": "Según publicación INE",
       "ultimaActualizacion": "2026-09-25",
-      "estadoConexion": "DISPONIBLE PARA SINCRONIZACIÓN CONTROLADA",
-      "observaciones": "Usar como complemento y control de las capas censales ya existentes. Toda incorporación al GPKG debe pasar por comparación y validación previa.",
+      "estadoConexion": "DISPONIBLE PARA SINCRONIZACIÓN CONTROLADA · FILTRO COMUNA SANTIAGO",
+      "observaciones": "Usar como complemento y control de las capas censales ya existentes. Toda incorporación al GPKG debe pasar por comparación y validación previa. Publicación y consumo limitados exclusivamente a la comuna de Santiago; universos nacionales/regionales quedan solo como RAW de respaldo.",
       "verEnMapa": false,
       "download": ""
     },
@@ -41,7 +41,7 @@
       "sector": "Salud",
       "carpeta": "Fuentes oficiales conectadas",
       "geometria": "Punto / tabla georreferenciable",
-      "escala": "Nacional → filtro comuna de Santiago",
+      "escala": "Comuna de Santiago",
       "contenedor": "Conector fuente oficial",
       "tipoContenedor": "FUENTE OFICIAL",
       "subcapa": "Establecimientos de Salud",
@@ -58,8 +58,8 @@
       "tipoConexion": "CSV / datos.gob.cl",
       "frecuenciaActualizacion": "Según actualización de datos.gob.cl",
       "ultimaActualizacion": "2026-09-25",
-      "estadoConexion": "DISPONIBLE PARA SINCRONIZACIÓN CONTROLADA",
-      "observaciones": "La fuente oficial registra actualización reciente. Debe filtrarse a comuna de Santiago y compararse con la capa local antes de reemplazar o incorporar registros.",
+      "estadoConexion": "DISPONIBLE PARA SINCRONIZACIÓN CONTROLADA · FILTRO COMUNA SANTIAGO",
+      "observaciones": "La fuente oficial registra actualización reciente. Debe filtrarse a comuna de Santiago y compararse con la capa local antes de reemplazar o incorporar registros. Publicación y consumo limitados exclusivamente a la comuna de Santiago; universos nacionales/regionales quedan solo como RAW de respaldo.",
       "verEnMapa": false,
       "download": ""
     },
@@ -71,7 +71,7 @@
       "sector": "Límites administrativos",
       "carpeta": "Fuentes oficiales conectadas",
       "geometria": "Polígono",
-      "escala": "Comuna",
+      "escala": "Comuna de Santiago",
       "contenedor": "Conector fuente oficial",
       "tipoContenedor": "FUENTE OFICIAL",
       "subcapa": "Límites comunales",
@@ -88,8 +88,8 @@
       "tipoConexion": "ArcGIS REST / servicio geográfico",
       "frecuenciaActualizacion": "Según publicación BCN",
       "ultimaActualizacion": "2026-09-25",
-      "estadoConexion": "ENDPOINT PENDIENTE DE VALIDACIÓN",
-      "observaciones": "Se registra como fuente oficial de referencia para control de límites. No debe reemplazar automáticamente los límites oficiales GIS STGO.",
+      "estadoConexion": "ENDPOINT PENDIENTE DE VALIDACIÓN · FILTRO COMUNA SANTIAGO",
+      "observaciones": "Se registra como fuente oficial de referencia para control de límites. No debe reemplazar automáticamente los límites oficiales GIS STGO. Publicación y consumo limitados exclusivamente a la comuna de Santiago; universos nacionales/regionales quedan solo como RAW de respaldo.",
       "verEnMapa": false,
       "download": ""
     }
