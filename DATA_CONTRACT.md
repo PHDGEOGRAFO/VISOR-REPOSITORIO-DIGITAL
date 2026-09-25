@@ -42,3 +42,21 @@ Cada capa debe declarar en `disaggregateFields` los campos categóricos que pued
 ## Integración esperada
 
 El visor leerá el catálogo, cargará el GeoJSON indicado, generará simbología y filtros desde los campos declarados, y habilitará las descargas existentes. La tabla de atributos compartirá la selección territorial con el mapa.
+
+
+## Conectores de fuentes oficiales
+
+Las fuentes oficiales externas se integran al mismo catálogo de coberturas y deben declarar, cuando corresponda:
+
+- `fuenteInstitucional`: organismo responsable del dato.
+- `fuenteUrl`: URL oficial de consulta o descarga.
+- `fuenteAnio`: año de referencia del dato.
+- `tipoOrigen`: municipal, fuente oficial externa, histórico u otro.
+- `tipoConexion`: API, ArcGIS REST, WMS/WFS, CSV, XLSX, CKAN/datos.gob.cl, GeoJSON u otro.
+- `frecuenciaActualizacion`: periodicidad conocida o regla de revisión.
+- `ultimaActualizacion`: fecha de última revisión/sincronización por GIS STGO.
+- `estadoConexion`: disponible, pendiente de validación, sin cambios, fuente modificada o fuente caída.
+
+Un conector registrado no equivale a una capa publicada. Antes de modificar el GeoPackage maestro se debe conservar una copia RAW de la fuente, filtrar a la comuna de Santiago cuando corresponda, comparar altas/bajas/cambios con la cobertura vigente y validar geometría, campos clave, CRS y consistencia territorial.
+
+Los conectores se registran en `public/catalog/conectores_fuentes_oficiales.json` y el glosario asociado en `public/catalog/glosario_fuentes.json`. El Índice y el buscador de Biblioteca Digital consumen estos registros junto al catálogo existente.
