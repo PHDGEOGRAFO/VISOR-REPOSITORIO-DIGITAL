@@ -6,6 +6,7 @@ from pathlib import Path
 # Coberturas descartadas oficialmente: no deben aparecer en el visor,
 # en el índice ni en el artefacto publicado.
 DISCARDED_SLUGS = {
+    "amb-pol-ndwi-stgo-2025",
     "amb-pol-ndvi-stgo-oct-2025",
     "iat5-ndvi-bar-2023",
     "iat5-ndvi-bar-2025",

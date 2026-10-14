@@ -1,6 +1,6 @@
 {
   "file": "02_DIM_AMBIENTAL_VF.gpkg",
-  "total": 30,
+  "total": 29,
   "items": [
     {
       "table": "AMB_LIN_RUTAS_ASEO_DOM_2025",
@@ -197,24 +197,6 @@
       "container": "02_DIM_AMBIENTAL_VF.gpkg",
       "id": "vf-amb-pol-ndvi-stgo-oct-2025",
       "mapId": "vf-amb-pol-ndvi-stgo-oct-2025",
-      "removed_sensitive": [],
-      "crs_override_wgs84": false
-    },
-    {
-      "table": "AMB_POL_NDWI_STGO_2025",
-      "slug": "amb-pol-ndwi-stgo-2025",
-      "geometry": "POLYGON",
-      "source_srid": 32719,
-      "records": 2240,
-      "web_records": 2240,
-      "theme": "AMB",
-      "dimension": "DIMENSIÓN AMBIENTAL",
-      "sector": "Áreas verdes y vegetación / Residuos, reciclaje y calidad ambiental",
-      "geojson": "/data/ambiental/amb-pol-ndwi-stgo-2025.geojson",
-      "gpkg": "/data/gpkg/02_DIM_AMBIENTAL_VF.gpkg",
-      "container": "02_DIM_AMBIENTAL_VF.gpkg",
-      "id": "vf-amb-pol-ndwi-stgo-2025",
-      "mapId": "vf-amb-pol-ndwi-stgo-2025",
       "removed_sensitive": [],
       "crs_override_wgs84": false
     },
