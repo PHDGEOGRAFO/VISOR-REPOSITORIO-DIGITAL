@@ -321,7 +321,7 @@ export default function Home(){
  const[radius,setRadius]=useState(500);const[groupMetersInput,setGroupMetersInput]=useState("250");const groupRadiusMeters=Math.min(5000,Math.max(25,Number(groupMetersInput)||250));const[isoMode,setIsoMode]=useState("A pie");const[isoMinutes,setIsoMinutes]=useState(10);
  const[santiQuery,setSantiQuery]=useState("");
  const[santiReply,setSantiReply]=useState("Soy SantIA. Puedo consultar coberturas, contar barrios y territorios, desagregar variables, activar herramientas y analizar un polígono.");
- const[expandedDimension,setExpandedDimension]=useState("");const[dimensionQuery,setDimensionQuery]=useState("");
+ const[expandedDimension,setExpandedDimension]=useState("");
  const[indexOpen,setIndexOpen]=useState(false);const[indexItems,setIndexItems]=useState<IndexItem[]>([]);const[indexQuery,setIndexQuery]=useState("");const[indexDimension,setIndexDimension]=useState("TODOS");const[indexSector,setIndexSector]=useState("TODOS");const[sidebarQuery,setSidebarQuery]=useState("");const[indexPos,setIndexPos]=useState({x:0,y:0});const[indexCompact,setIndexCompact]=useState(false);
  const[rightTool,setRightTool]=useState<"summary"|"table"|"meta"|"report">("summary");
  const[modal,setModal]=useState<"help"|null>(null);const[downloadRequest,setDownloadRequest]=useState<{path:string;label:string}|null>(null);const[downloadKey,setDownloadKey]=useState("");const[downloadError,setDownloadError]=useState("");
@@ -416,23 +416,17 @@ export default function Home(){
     <div className="dimensionList compactDimensions">{sidebarDimensions.map(d=>{
       const dimension=`DIMENSIÓN ${d.id}`,expanded=expandedDimension===d.id;
       const items=indexItems.filter(i=>itemDimension(i)===dimension);
-      const shown=items.filter(i=>normText(`${i.nombre} ${itemSector(i)}`).includes(normText(dimensionQuery)));
+      const shown=items;
       return <div className="dimensionAccordion" key={d.id}>
-        <button className="dimensionToggle" aria-expanded={expanded} aria-controls={`dimension-${d.id}`} onClick={()=>{setExpandedDimension(expanded?"":d.id);setDimensionQuery("")}}>
+        <button className="dimensionToggle" aria-expanded={expanded} aria-controls={`dimension-${d.id}`} onClick={()=>{setExpandedDimension(expanded?"":d.id)}}>
           <span className="dimensionCode">{d.id==="SOCIOCULTURAL"?"SOC":d.id==="ECONOMICA"?"ECO":d.id==="AMBIENTAL"?"AMB":"URB"}</span><strong>{d.label}</strong><b>{dimensionCounts[d.id]??0}</b><span aria-hidden="true">{expanded?"▾":"▸"}</span>
         </button>
         {expanded&&<section className="dimensionCoverages" id={`dimension-${d.id}`} aria-label={`Coberturas de ${d.label}`}>
-          <input className="dimensionSearch" aria-label={`Buscar en ${d.label}`} value={dimensionQuery} onChange={e=>setDimensionQuery(e.target.value)} placeholder="Buscar variable…"/>
-          <div className="dimensionCatalogActions"><button onClick={()=>openDimension(dimension)}>Ver índice completo</button><button onClick={()=>exportCatalog(items,d.label)}>Exportar catálogo CSV</button></div>
           <div className="dimensionCoverageList">
           {shown.map(i=>{const id=i.mapId||i.id,blocked=temporarilyDisabled(id),available=Boolean(i.verEnMapa&&i.mapId&&layers.some(l=>l.id===id)),on=active.includes(id),state=blocked?"Temporalmente en corrección":!available?"Sin capa disponible":status[id]==="error"?"Error de carga":status[id]==="cargando"?"Cargando…":on?"Visible en mapa":"Disponible";
             return <div className="dimensionCoverageRow" key={i.id}>
-              <label className="dimensionCoverageLabel"><input type="checkbox" checked={on&&!blocked} disabled={blocked||!available} onChange={()=>toggleFromIndex(i)} aria-label={`Mostrar ${i.nombre}`}/><span><strong>{i.nombre}</strong><small className={blocked||status[id]==="error"?"coverageWarning":""}>{state}</small></span></label>
-              <details className="dimensionCoverageDetails"><summary>Ficha y descargas</summary>
-                <dl><dt>Sector</dt><dd>{itemSector(i)}</dd><dt>Geometría</dt><dd>{i.geometria||"Sin información"}</dd><dt>Registros</dt><dd>{i.registros??"Sin información"}</dd><dt>Fuente / año</dt><dd>{i.fuenteInstitucional||"Municipal / repositorio interno"} · {i.fuenteAnio||i.anio||"Año no informado"}</dd><dt>Origen</dt><dd>{i.contenedor||i.carpeta||"Sin información"}</dd><dt>Validación</dt><dd>{i.validacion||"Pendiente"}</dd><dt>Estado</dt><dd>{blocked?state:i.estado||"Pendiente"}</dd></dl>
-                <div className="dimensionCatalogActions"><button disabled={blocked||!available} onClick={()=>openFromIndex(i)}>Mostrar y consultar</button><button onClick={()=>{openDimension(dimension);setIndexQuery(i.nombre)}}>Ver descargas</button></div>
-                <small>Las descargas de coberturas requieren autorización.</small>
-              </details>
+              <label className="dimensionCoverageLabel" title={state}><input type="checkbox" checked={on&&!blocked} disabled={blocked||!available} onChange={()=>toggleFromIndex(i)} aria-label={`Mostrar ${i.nombre}`}/><span><strong>{i.nombre}</strong></span></label>
+
             </div>})}
           {!shown.length&&<p className="dimensionEmpty">{items.length?"No hay coincidencias.":"Cargando catálogo…"}</p>}
           </div>
@@ -458,8 +452,8 @@ export default function Home(){
         </div>})}
       </div>
       <footer className="activeLayersFooter">
-        <button className="clearActiveLayers" onClick={clearSidebarLayers}>⌫ Limpiar</button>
-        <button className="openFullIndex compactIndexButton" onClick={()=>openDimension("TODOS")}>Abrir Índice de Coberturas</button>
+        <button className="clearActiveLayers" onClick={clearSidebarLayers}>Limpiar plano</button>
+        <button className="openFullIndex compactIndexButton" onClick={()=>openDimension("TODOS")}>Abrir índice de coberturas y descargas</button>
       </footer>
     </section>
    </aside>
