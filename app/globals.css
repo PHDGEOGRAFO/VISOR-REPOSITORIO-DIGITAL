@@ -493,3 +493,16 @@
 
 .sidebarQgis .dimensionCoverages small{display:block!important;}
 .sidebarQgis .dimensionCoverageDetails dt,.sidebarQgis .dimensionCoverageDetails dd{font-size:10px!important;letter-spacing:normal!important;text-transform:none!important;}
+
+/* Acciones independientes del árbol de capas. */
+.sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(180px,360px)!important;}
+.sidebarQgis .sidebarActions{display:grid!important;gap:8px!important;margin:10px 0!important;padding:0!important;flex:0 0 auto!important;position:static!important;}
+.sidebarQgis .sidebarActions button{display:block!important;position:static!important;width:100%!important;min-height:42px!important;margin:0!important;padding:10px 12px!important;border:1px solid #9eafc0!important;border-radius:6px!important;background:#fff!important;color:#163b60!important;font:600 12px/1.4 Arial,sans-serif!important;text-align:center!important;white-space:normal!important;cursor:pointer!important;box-shadow:0 1px 3px #163b6014!important;}
+.sidebarQgis .sidebarActions .openFullIndex{background:#073879!important;border-color:#073879!important;color:#fff!important;}
+.sidebarQgis .sidebarActions button:hover{filter:brightness(.94);}
+.sidebarQgis .sidebarActions button:focus-visible{outline:3px solid #e4a72c!important;outline-offset:2px!important;}
+@media(max-height:760px){.sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(100px,210px)!important;}}
+
+.sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(120px,220px)!important;}
+.sidebarQgis .activeLayersTree{min-height:120px!important;max-height:220px!important;}
+@media(max-height:760px){.sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(100px,180px)!important;}.sidebarQgis .activeLayersTree{min-height:100px!important;max-height:180px!important;}}

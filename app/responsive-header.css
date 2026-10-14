@@ -158,3 +158,16 @@
 .institutionalHeader .brand .officeLabel{font-size:11px!important;}
 .institutionalHeader .brand .dataOriginDescription{line-height:1.4!important;}
 @media(max-width:650px){.institutionalHeader .brand h1{font-size:22px!important;}.institutionalHeader .brand .dataOriginDescription{font-size:11px!important;}}
+
+/* Tipografía uniforme: un tamaño para información y acciones, título destacado. */
+.institutionalHeader,.institutionalHeader button,.institutionalHeader a{font-family:Arial,sans-serif!important;}
+.institutionalHeader .municipalBrand strong,
+.institutionalHeader .municipalBrand small,
+.institutionalHeader .brand .officeLabel,
+.institutionalHeader .brand .dataOriginDescription,
+.institutionalHeader .topActions button,
+.institutionalHeader .topActions a,
+.institutionalHeader .scope span,
+.institutionalHeader .scope b{font-size:12px!important;line-height:1.4!important;letter-spacing:normal!important;}
+.institutionalHeader .brand h1{font-family:Arial,sans-serif!important;font-size:24px!important;line-height:1.2!important;}
+@media(max-width:650px){.institutionalHeader .brand h1{font-size:22px!important;}}
