@@ -16,7 +16,7 @@ import MapUiEnhancements from "./MapUiEnhancements";
 import DownloadAccessGateV2 from "./DownloadAccessGateV2";
 
 export const metadata:Metadata={
-  title:"Visor Territorial · Municipalidad de Santiago",
+  title:"Visor Territorial de Planificación · Municipalidad de Santiago",
   description:"Información territorial elaborada a partir de antecedentes proporcionados por direcciones y oficinas municipales, levantamientos propios, catastros, encuestas y otras fuentes afines.",
   icons:{icon:"/VISOR-REPOSITORIO-DIGITAL/favicon.svg"}
 };

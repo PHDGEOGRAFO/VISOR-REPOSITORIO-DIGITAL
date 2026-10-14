@@ -41,18 +41,18 @@
 .institutionalHeader .brand h1{
   margin:0!important;
   line-height:1.05!important;
-  font-size:22px!important;
+  font-size:24px!important;
 }
 .institutionalHeader .brand .officeLabel{
   margin:2px 0 0!important;
   line-height:1.2!important;
-  font-size:8px!important;
+  font-size:10px!important;
 }
 .institutionalHeader .brand .dataOriginDescription{
   max-width:780px!important;
   margin:5px 0 0!important;
   line-height:1.28!important;
-  font-size:10px!important;
+  font-size:12px!important;
   opacity:.9!important;
 }
 .institutionalHeader .topActions{
@@ -107,8 +107,8 @@
     padding:6px 8px!important;
   }
   .institutionalHeader .municipalBrand img{width:min(135px,11vw)!important}
-  .institutionalHeader .brand h1{font-size:20px!important}
-  .institutionalHeader .brand .dataOriginDescription{font-size:9px!important;line-height:1.22!important}
+  .institutionalHeader .brand h1{font-size:22px!important}
+  .institutionalHeader .brand .dataOriginDescription{font-size:11px!important;line-height:1.3!important}
   .institutionalHeader .topActions{min-width:180px!important;max-width:235px!important;gap:4px!important}
   .institutionalHeader .topActions button,
   .institutionalHeader .topActions a{padding-left:8px!important;padding-right:8px!important;font-size:8px!important}
@@ -150,3 +150,11 @@
   .institutionalHeader .topActions{justify-content:flex-start!important;padding-bottom:20px!important}
   .institutionalHeader .scope{left:10px!important;right:auto!important;bottom:5px!important}
 }
+
+/* Header readability and updated visor name. */
+.institutionalHeader .municipalBrand strong{font-size:12px!important;line-height:1.3!important;}
+.institutionalHeader .municipalBrand small{font-size:11px!important;line-height:1.35!important;}
+.institutionalHeader .brand h1{line-height:1.15!important;}
+.institutionalHeader .brand .officeLabel{font-size:11px!important;}
+.institutionalHeader .brand .dataOriginDescription{line-height:1.4!important;}
+@media(max-width:650px){.institutionalHeader .brand h1{font-size:22px!important;}.institutionalHeader .brand .dataOriginDescription{font-size:11px!important;}}
