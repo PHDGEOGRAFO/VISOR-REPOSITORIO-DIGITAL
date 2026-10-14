@@ -27,8 +27,12 @@ jobs:
         run: python scripts/runtime_deploy_patches.py
       - name: Restaurar limites base exactos
         run: python scripts/fix_base_boundaries.py
+      - name: Instalar validación y simplificación topológica
+        run: python -m pip install shapely==2.2.0
       - name: Preparar geometrías web seguras
         run: python scripts/prepare_safe_web_geojson.py
+      - name: Verificar geometrías compuestas y conservación de registros
+        run: python tests/web_geometry_test.py
       - name: Retirar coberturas descartadas del visor
         run: python scripts/remove_discarded_coverages.py
       - name: Aplicar bloqueo temporal de coberturas

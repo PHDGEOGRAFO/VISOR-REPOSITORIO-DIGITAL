@@ -7,15 +7,7 @@ s = p.read_text(encoding="utf-8")
 # Coberturas pesadas temporalmente inhabilitadas mientras se generan
 # versiones web livianas para visualización segura.
 # NDVI se administra por archivo concreto; no se bloquea genéricamente por año.
-blocked = [
-    "vf-amb-pol-areas-verdes",
-    "vf-amb-pol-averde-prc",
-    "vf-amb-pol-mascotas-mz-2026",
-    "vf-amb-pol-ndwi-stgo-2025",
-    "vf-amb-pol-plazas-2026",
-    "vf-amb-pol-reciclaje-manzana",
-    "vf-amb-pol-reciclaje-vf",
-]
+blocked = []
 
 set_expr = "const TEMPORARILY_DISABLED=new Set<string>([" + ",".join(f'\"{x}\"' for x in blocked) + "]);"
 s, n1 = re.subn(
@@ -39,4 +31,4 @@ if n2 != 1:
     raise RuntimeError("No se encontró temporarilyDisabled en app/page.tsx")
 
 p.write_text(s, encoding="utf-8")
-print("Bloqueo temporal aplicado: coberturas pesadas pendientes + Propiedades Municipales polígono.")
+print("Coberturas ambientales validadas habilitadas; se mantiene prevención de Propiedades Municipales polígono.")

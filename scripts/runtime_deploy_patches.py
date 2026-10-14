@@ -40,7 +40,7 @@ if 'Manual de uso</a>' not in s:
 if "const TEMPORARILY_DISABLED=" not in s:
     anchor = 'const thematicGroups=groups.filter(([c])=>c!=="BASE");'
     disabled = '''const thematicGroups=groups.filter(([c])=>c!=="BASE");
-const TEMPORARILY_DISABLED=new Set<string>(["vf-amb-pol-areas-verdes","vf-amb-pol-averde-prc"]);
+const TEMPORARILY_DISABLED=new Set<string>([]);
 const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id);'''
     if anchor not in s:
         raise RuntimeError("No se encontró thematicGroups para instalar bloqueo temporal")
@@ -152,4 +152,4 @@ main>header,.sidebar,.layerControl,.zoomControl,.mapAttribution,.topActions,.san
 '''
     css.write_text(c, encoding="utf-8")
 
-print("Parches de despliegue aplicados: UI estable + render V3 + Areas Verdes y Averde PRC temporalmente en corrección.")
+print("Parches de despliegue aplicados: UI estable + render V3 + bloqueo gestionado por temporary_layer_blocklist.py.")

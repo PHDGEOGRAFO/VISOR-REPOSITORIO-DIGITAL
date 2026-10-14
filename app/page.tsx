@@ -17,7 +17,7 @@ const groups:[Theme,string][]=[
  ["SEG","Seguridad y emergencias"],["SAL","Salud"],["ECO","Económica / actividad comercial"],["SOC","Social / sociocultural"],["INS","Institucional / administrativa"]
 ];
 const thematicGroups=groups.filter(([c])=>c!=="BASE");
-const TEMPORARILY_DISABLED=new Set<string>(["vf-amb-pol-areas-verdes","vf-amb-pol-averde-prc","vf-amb-pol-mascotas-mz-2026","vf-amb-pol-plazas-2026","vf-amb-pol-reciclaje-manzana","vf-amb-pol-reciclaje-vf"]);
+const TEMPORARILY_DISABLED=new Set<string>([]);
 const temporarilyDisabled=(id:string)=>TEMPORARILY_DISABLED.has(id)||(/propiedad(?:es)?-municipal(?:es)?/i.test(id)&&/(?:^|-)pol(?:-|$)/i.test(id));
 const pladecoDimensions=[
 {id:"AMBIENTAL",label:"Dimensión Ambiental",sectors:["Áreas verdes y vegetación","Residuos, reciclaje y calidad ambiental"]},
