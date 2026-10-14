@@ -43,6 +43,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq gdal-bin
+      - name: Omitir datos personales en visualización y descargas
+        run: python scripts/sanitize_public_attributes.py
       - name: Preparar GeoPackage y Shapefile por cobertura
         run: python scripts/prepare_layer_downloads.py
       - run: npm ci
