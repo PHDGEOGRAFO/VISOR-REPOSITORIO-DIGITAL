@@ -336,7 +336,7 @@ export default function Home(){
    if(data[layer.id]&&!(layer.populationJoin&&Object.keys(population).length))return;
    if(status[layer.id]==="cargando")return;
    setStatus(s=>({...s,[layer.id]:"cargando"}));
-   const layerFetch:Promise<GeoCollection>=fetch(layer.url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});
+   const layerFetch:Promise<GeoCollection>=fetch(layer.theme==="BASE"?`${layer.url}${layer.url.includes("?")?"&":"?"}base_revision=20261015_perimetro`:layer.url,{cache:layer.theme==="BASE"?"no-store":"default"}).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()});
    layerFetch.then((fc:GeoCollection)=>{
     let clean={...fc,features:fc.features.map(f=>({...f,properties:sanitizePublicProperties(f.properties||{})}))};
     if(layer.id==="lineas-prc")clean={...clean,features:clean.features.filter(f=>f.geometry.type==="LineString"||f.geometry.type==="MultiLineString")};
