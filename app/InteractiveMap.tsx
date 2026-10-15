@@ -7,7 +7,7 @@ export type LayerStyle={color:string;fill?:string;width?:number;pointRadius?:num
 export type VizMode="simple"|"cluster"|"heat"|"draw";
 export type DrawPolygon={type:"Polygon";coordinates:number[][][]};
 const W=900,H=600,TILE=256;
-const VERIFIED_POLYGON_LAYERS=new Set(["vf-amb-pol-areas-verdes","vf-amb-pol-averde-prc","vf-amb-pol-mascotas-mz-2026","vf-amb-pol-plazas-2026","vf-amb-pol-reciclaje-manzana","vf-amb-pol-reciclaje-vf"]);
+const VERIFIED_POLYGON_LAYERS=new Set(["comuna","territorio","barrio","vf-urb-limite-barrios","vf-urb-urb-pol-limite-barrios-stgo","vf-amb-pol-areas-verdes","vf-amb-pol-averde-prc","vf-amb-pol-mascotas-mz-2026","vf-amb-pol-plazas-2026","vf-amb-pol-reciclaje-manzana","vf-amb-pol-reciclaje-vf"]);
 const MAX_RENDER_FEATURES=1800,MAX_POLYGON_RENDER_FEATURES=320,MAX_LINE_RENDER_FEATURES=650,MAX_SELECTED_POINTS=20000,MAX_PARTS=40,MAX_POINTS_PER_PART=70;
 function sampleArray<T>(arr:T[],max:number){if(arr.length<=max)return arr;const step=Math.ceil(arr.length/max),out:T[]=[];for(let i=0;i<arr.length;i+=step)out.push(arr[i]);if(out[out.length-1]!==arr[arr.length-1])out.push(arr[arr.length-1]);return out}
 function stablePointKey(f:GeoFeature){const p=f.geometry.coordinates;const x=Array.isArray(p)&&typeof p[0]==="number"?p[0]:0,y=Array.isArray(p)&&typeof p[1]==="number"?p[1]:0;const id=String(f.id??f.properties?.COD_MZN??f.properties?.id??"");let h=2166136261;for(const c of `${x},${y}:${id}`){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
