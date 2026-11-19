@@ -506,3 +506,17 @@
 .sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(120px,220px)!important;}
 .sidebarQgis .activeLayersTree{min-height:120px!important;max-height:220px!important;}
 @media(max-height:760px){.sidebarQgis .activeLayersPanel{grid-template-rows:auto minmax(100px,180px)!important;}.sidebarQgis .activeLayersTree{min-height:100px!important;max-height:180px!important;}}
+
+/* Configurador de lámina cartográfica institucional */
+.cartoPrintBackdrop{position:fixed;inset:0;z-index:99999;background:rgba(11,27,29,.66);display:grid;place-items:center;padding:18px}
+.cartoPrintDialog{width:min(520px,96vw);max-height:90vh;overflow:auto;background:#fff;color:#213d3b;border:1px solid #b3c6c0;border-radius:10px;box-shadow:0 24px 70px #0005;padding:22px;font-family:inherit}
+.cartoPrintDialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.cartoPrintDialog header strong{font-size:19px;color:#124e43}
+.cartoPrintDialog p{font-size:13px;line-height:1.5;margin:0 0 16px}
+.cartoPrintDialog label{display:grid;gap:5px;font-size:12px;font-weight:700;margin-bottom:12px}
+.cartoPrintDialog input,.cartoPrintDialog select{width:100%;padding:9px;border:1px solid #9fbbb3;border-radius:5px;background:white;color:#183a33;font-size:13px}
+.cartoPrintGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cartoPrintDialog footer{display:flex;justify-content:flex-end;gap:9px;margin-top:12px;flex-wrap:wrap}
+.cartoPrintDialog button{padding:9px 13px;cursor:pointer;border:1px solid #8ba49a;border-radius:5px;background:white;color:#234d43}
+.cartoPrintDialog button.cartoPrintPrimary{background:#185c4d;color:white;border-color:#185c4d}
+@media print{.cartoPrintBackdrop{display:none!important}.printInstitution span{max-width:100mm;white-space:normal}.printSource{white-space:normal}}
