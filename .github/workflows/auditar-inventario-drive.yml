@@ -1,0 +1,49 @@
+name: Auditar inventario Drive GIS STGO
+
+# Manual hasta verificar acceso y cobertura de permisos.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: audit-inventario-gisstgo
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar configuración
+        env:
+          PROVIDER: ${{ vars.GISSTGO_WIF_PROVIDER }}
+          ROOT_ID: ${{ secrets.BIBLIOTECA_ROOT_ID }}
+        run: |
+          test -n "$PROVIDER" || { echo "::error::Falta configurar GISSTGO_WIF_PROVIDER."; exit 1; }
+          test -n "$ROOT_ID" || { echo "::error::Falta configurar BIBLIOTECA_ROOT_ID."; exit 1; }
+      - id: auth
+        name: Autenticación temporal Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GISSTGO_WIF_PROVIDER }}
+          service_account: gisstgo-automatizaciones@gisstgo.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive.readonly
+          create_credentials_file: false
+          export_environment_variables: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: pip install --disable-pip-version-check requests openpyxl
+      - name: Auditar inventario y cobertura de identificadores
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          BIBLIOTECA_ROOT_ID: ${{ secrets.BIBLIOTECA_ROOT_ID }}
+          BIBLIOTECA_CONTROL_FILE_ID: 1qfAQPpn2MDjm9y6tiQHZfQqGqJ8omtBwWOe9kggcK00
+        run: python scripts/auditar_inventario_drive.py
