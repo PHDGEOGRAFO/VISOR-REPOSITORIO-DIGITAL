@@ -1,8 +1,10 @@
 name: Detectar cambios GIS STGO
 
-# Manual hasta verificar acceso y cobertura de permisos.
+# Seguimiento horario; no publica ni elimina coberturas.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
