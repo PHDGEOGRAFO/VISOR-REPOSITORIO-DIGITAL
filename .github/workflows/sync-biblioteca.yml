@@ -23,7 +23,7 @@ jobs:
         run: pip install --disable-pip-version-check requests openpyxl google-auth
       - name: Validar acceso al Registro Maestro sin publicar datos
         env:
-          BIBLIOTECA_CONTROL_FILE_ID: 1a7Nin8ubgI5BrjJvOw7VZbXQF6rK8nmhS9wPfmyPpMQ
+          BIBLIOTECA_CONTROL_FILE_ID: 1qfAQPpn2MDjm9y6tiQHZfQqGqJ8omtBwWOe9kggcK00
           BIBLIOTECA_CONTROL_URL: ${{ secrets.BIBLIOTECA_CONTROL_URL }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -85,8 +85,8 @@ jobs:
           source_only = len(source_ids - public_ids)
           public_only = len(public_ids - source_ids)
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
-              f.write(f'### Comparación de identificadores\\nRegistro maestro: {len(master_ids)}. IDs visor coincidentes: {matched}. Vínculos sin catálogo: {source_only}. Entradas del catálogo sin vínculo: {public_only}.\\n')
-              f.write('Las diferencias no implican autorización de publicación. No se agregan, eliminan ni modifican coberturas.\\n')
+              f.write(f'### Comparación de identificadores\nRegistro maestro: {len(master_ids)}. IDs visor coincidentes: {matched}. Vínculos sin catálogo: {source_only}. Entradas del catálogo sin vínculo: {public_only}.\n')
+              f.write('Las diferencias no implican autorización de publicación. No se agregan, eliminan ni modifican coberturas.\n')
           wb.close()
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
               f.write(f'### Acceso al control validado\nFilas no vacías: {count}. Catálogo publicado sin cambios.\n')
